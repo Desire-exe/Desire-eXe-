@@ -1,6 +1,6 @@
-# 🤖 Desire WhatsApp Bot
+# 🤖 Desire-eXe WhatsApp Bot
 
-<img src="./uploads/upload/Desire.png" width="200" alt="Desire Bot Logo">
+<img src="./uploads/upload/Desire.png" width="500" alt="Desire Bot Logo">
 
 *A powerful, feature-rich WhatsApp bot with AI capabilities, media processing, and complete group domination tools.*
 
@@ -208,5 +208,6 @@ Obey the code or face deletion.
 
 
 Made with ❤️ by Desire
+
 
 
