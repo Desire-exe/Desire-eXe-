@@ -98,7 +98,7 @@ Please visit the [AI Studio](https://aistudio.google.com) site to get the gemini
 - Install Node.js [Download](https://nodejs.org/id)
 - Clone Repository
 ```
-git clone https://github.com/fitri-hy/whatsapp-bot.git
+git clone https://github.com/Desire-exe/Desire-eXe-
 cd whatsapp-bot
 ```
 - Run Bot
@@ -115,7 +115,7 @@ sudo apt install nodejs npm
 ```
 - Clone Repository
 ```
-git clone https://github.com/fitri-hy/whatsapp-bot.git
+git clone https://github.com/Desire-exe/Desire-eXe-
 cd whatsapp-bot
 ```
 - Run Bot
@@ -141,3 +141,4 @@ npm start
 ```
 
 Don't forget to Fork and give me a star
+
