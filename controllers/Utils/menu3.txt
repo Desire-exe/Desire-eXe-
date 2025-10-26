@@ -1,0 +1,183 @@
+⫸⫸⫸⫸⫸
+🤖 AI
+⫸⫸⫸⫸⫸
+
+├⩥ *gemini-ai*
+└• *gemini-img*
+
+⫸⫸⫸⫸⫸⫸
+📦 Misc
+⫸⫸⫸⫸⫸⫸
+
+├⩥ *sticker*
+├⩥ *tts*
+├⩥ *Tts2*
+├⩥ *weather*
+├⩥ *translate*
+├⩥ *country*
+├⩥ *seo*
+├⩥ *words*
+├⩥ *mtk*
+├⩥ *qrcode*
+├⩥ *anime*
+├⩥ *ocr*
+├⩥ *ssweb*
+├⩥ *ssmobile*
+└• *github*
+
+⫸⫸⫸⫸⫸⫸⫸⫸
+🔒Encrypts
+⫸⫸⫸⫸⫸⫸⫸⫸
+
+├⩥ aes-enc
+├⩥ aes-dec
+├⩥ camellia-enc
+├⩥ camellia-dec
+├⩥ sha
+├⩥ md5
+├⩥ ripemd
+└• bcrypt
+
+⫸⫸⫸⫸⫸⫸⫸⫸⫸⫸
+⬇️ Downloader
+⫸⫸⫸⫸⫸⫸⫸⫸⫸⫸
+
+├⩥ *ytdl-mp4*
+├⩥ *ytdl-mp3*
+├⩥ *fbdl-mp4*
+├⩥ *fbdl-mp3*
+├⩥ *twdl-mp4*
+├⩥ *twdl-mp3*
+├⩥ *igdl-mp4*
+├⩥ *igdl-mp3*
+├⩥ *tkdl-mp4*
+├⩥ *tkdl-mp3*
+├⩥ *vmdl-mp4*
+└• *vmdl-mp3*
+
+⫸⫸⫸⫸⫸⫸⫸
+🕌 Quran
+⫸⫸⫸⫸⫸⫸⫸
+
+├⩥ *surah*
+└• *surah-detail*
+
+⫸⫸⫸⫸⫸⫸⫸⫸⫸⫸
+🌐 Wikipedia
+⫸⫸⫸⫸⫸⫸⫸⫸⫸⫸
+
+├⩥ *wiki-ai*
+├⩥ *wiki-search*
+└• *wiki-img*
+
+⫸⫸⫸⫸⫸⫸⫸
+📰 Detik
+⫸⫸⫸⫸⫸⫸⫸
+
+├⩥ *detik-search*
+├⩥ *detik-viral*
+└• *detik-news*
+
+⫸⫸⫸⫸⫸⫸⫸
+📁 File
+⫸⫸⫸⫸⫸⫸⫸
+
+├⩥ *pdf*
+├⩥ *doc*
+├⩥ *docx*
+├⩥ *xls*
+├⩥ *xlsx*
+├⩥ *ppt*
+├⩥ *pptx*
+├⩥ *txt*
+├⩥ *html*
+├⩥ *htm*
+├⩥ *csv*
+├⩥ *rtf*
+├⩥ *odt*
+├⩥ *ods*
+├⩥ *odp*
+├⩥ *epub*
+├⩥ *zip*
+└• *gz*
+
+⫸⫸⫸⫸⫸⫸⫸
+👥 Group
+⫸⫸⫸⫸⫸⫸⫸
+
+├⩥ *Desire-exit*
+├⩥ *eXe*
+├⩥ *Tagall*
+├⩥ *Tagall2*
+├⩥ *Tag*
+├⩥ *tag*
+├⩥ *inv*
+├⩥ *block2*
+├⩥ *unblock*
+├⩥ *welcome-on*
+├⩥ *set-welcome*
+├⩥ *welcome-off*
+├⩥ *goodbye-on*
+├⩥ *mpoll*
+├⩥ *poll*
+├⩥ *del*
+├⩥ *promote*
+├⩥ *demote*
+├⩥ *warn*
+├⩥ *mute*
+├⩥ *unmute*
+├⩥ *antilink-on*
+├⩥ *antilink-off*
+├⩥ *antibadwords-on*
+├⩥ *badwords-off*
+├⩥ *public*
+└• *private*
+
+⫸⫸⫸⫸⫸⫸
+🎉 Fun
+⫸⫸⫸⫸⫸⫸
+
+├⩥ *fact*
+├⩥ *detect-h*
+├⩥ *truth-dare*
+├⩥ *neko*
+├⩥ *opai*
+├⩥ *ass*
+├⩥ *Desire-mini-ai-on*
+└• *Desire-mini-ai-off*
+
+⫸⫸⫸⫸⫸⫸⫸⫸
+🥷 Hacking
+⫸⫸⫸⫸⫸⫸⫸⫸
+
+├⩥ *Dns*
+├⩥ *Whois*
+├⩥ *Subenum*
+├⩥ *Ping*
+├⩥ *scan*
+├⩥ *dnslookup*
+└• *ipinfo*
+
+⫸⫸⫸⫸⫸⫸⫸
+👨‍💻 Owner
+⫸⫸⫸⫸⫸⫸⫸
+
+├⩥ *Desire-off*
+├⩥ *Desire-Arise*
+├⩥ *autoblock-on*
+├⩥ *autoblock-off*
+├⩥ *Anticall-on*
+├⩥ *Anticall-off*
+├⩥ *setprefix*
+├⩥ *resetprefix*
+├⩥ *Owner*
+├⩥ *Alive*
+├⩥ *block*
+├⩥ *groups*
+├⩥ *sspam*
+├⩥ *clone-pfp*
+├⩥ *clear*
+├⩥ *vv*
+└• *vv2*
+
+

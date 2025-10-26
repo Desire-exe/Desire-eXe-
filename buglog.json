@@ -1,0 +1,626 @@
+[
+  {
+    "time": "2025-08-19T12:37:56.170Z",
+    "jid": "2349021658724@s.whatsapp.net",
+    "type": "text",
+    "detail": "{\"extendedTextMessage\":{\"text\":\"😂🙂‍↔️🙂‍↔️\",\"contextInfo\":{\"expiration\":0,\"ephemeralSettingTimestamp\":\"0\",\"disappearingMode\":{\"initiator\":\"CHANGED_IN_CHAT\"}}}}"
+  },
+  {
+    "time": "2025-08-19T13:15:01.743Z",
+    "jid": "2347061368807@s.whatsapp.net",
+    "type": "text",
+    "detail": "{\"extendedTextMessage\":{\"text\":\"What are the things for crying out loud🤦‍♀️\",\"contextInfo\":{\"expiration\":0,\"ephemeralSettingTimestamp\":\"1750581097\",\"disappearingMode\":{\"initiator\":\"CHANGED_IN_CHAT\",\"trigger\":\"CHAT_SETTING\",\"initiatedByMe\":true}}},\"messageContextInfo\":{\"deviceListMetadata\":{\"senderTimestamp\":\"1755609137\",\"recipientKeyHash\":\"7/J6kF9xG3LB2A==\",\"recipientTimestamp\":\"1753574166\"},\"deviceListMetadataVersion\":2,\"messageSecret\":\"ui8somTilQN/6GiDzrnPjQNX7b/cNc6xD5O5njlEIj4=\"}}"
+  },
+  {
+    "time": "2025-08-19T14:42:05.668Z",
+    "jid": "2347017747337@s.whatsapp.net",
+    "type": "text",
+    "detail": "{\"extendedTextMessage\":{\"text\":\"require('crypto');\\n\\nif (command === 'play') {\\n  let query = messageBody.split(' ').slice(1).join(' ');\\n\\n  if (!query) {\\n    await sock.sendMessage(chatId, { text: \\\"Please provide a search query.\\\" }, { quoted: msg });\\n    return;\\n  }\\n\\n  await sock.sendMessage(chatId, { react: { text: \\\"👨‍💻\\\", key: msg.key } });\\n\\n  try {\\n    const searchCmd = `yt-dlp \\\"ytsearch1:${query}\\\" -j`;\\n    exec(searchCmd, async (error, stdout) => {\\n      if (error || !std"
+  },
+  {
+    "time": "2025-08-19T14:44:04.699Z",
+    "jid": "2347017747337@s.whatsapp.net",
+    "type": "text",
+    "detail": "{\"extendedTextMessage\":{\"text\":\"// Youtube Video to MP3\\nconst crypto = require('crypto');\\n\\nif (command === 'play') {\\n  let query = messageBody.split(' ').slice(1).join(' ');\\n\\n  if (!query) {\\n    await sock.sendMessage(chatId, { text: \\\"Please provide a search query.\\\" }, { quoted: msg });\\n    return;\\n  }\\n\\n  await sock.sendMessage(chatId, { react: { text: \\\"👨‍💻\\\", key: msg.key } });\\n\\n  try {\\n    const searchCmd = `yt-dlp \\\"ytsearch1:${query}\\\" -j`;\\n    exec(searchCmd, async (erro"
+  },
+  {
+    "time": "2025-08-19T14:48:09.411Z",
+    "jid": "2347017747337@s.whatsapp.net",
+    "type": "text",
+    "detail": "{\"extendedTextMessage\":{\"text\":\"const fs = require('fs');\\nconst https = require('https');\\nconst crypto = require('crypto');\\nconst { exec } = require('child_process');\\n\\n// Helper to download image\\nfunction downloadImage(url, dest) {\\n  return new Promise((resolve, reject) => {\\n    const file = fs.createWriteStream(dest);\\n    https.get(url, (res) => {\\n      res.pipe(file);\\n      file.on('finish', () => file.close(() => resolve()));\\n    }).on('error', (err) => {\\n      fs.unlink(dest, ()"
+  },
+  {
+    "time": "2025-08-19T20:54:43.423Z",
+    "jid": "2347061368807@s.whatsapp.net",
+    "type": "text",
+    "detail": "{\"extendedTextMessage\":{\"text\":\"If I say my mind problem If I don’t say my mind problem too😩\\n🤦‍♀️🤦‍♀️🤦‍♀️🤦‍♀️🤦‍♀️🤦‍♀️🤦‍♀️🤦‍♀️🤦‍♀️🤦‍♀️🤦‍♀️🤦‍♀️🤦‍♀️🤦‍♀️🤦‍♀️🤦‍♀️🤦‍♀️🤦‍♀️🤦‍♀️🤦‍♀️🤦‍♀️🤦‍♀️🤦‍♀️🤦‍♀️🤦‍♀️🤦‍♀️🤦‍♀️🤦‍♀️🤦‍♀️🤦‍♀️🤦‍♀️🤦‍♀️🤦‍♀️🤦‍♀️🤦‍♀️🤦‍♀️🤦‍♀️🤦‍♀️🤦‍♀️🤦‍♀️🤦‍♀️🤦‍♀️🤦‍♀️🤦‍♀️🤦‍♀️🤦‍♀️🤦‍♀️🤦‍♀️🤦‍♀️🤦‍♀️🤦‍♀️🤦‍♀️🤦‍♀️🤦‍♀️\",\"contextInfo\":{\"expiration\":0,\"ephemeralSettingTimestamp\":\"1750581097\",\"disappearingMode\":{\"initiator\":\"CHANGED_IN_CHAT\",\"trigger\":\"C"
+  },
+  {
+    "time": "2025-08-19T21:59:22.738Z",
+    "jid": "2347061368807@s.whatsapp.net",
+    "type": "text",
+    "detail": "{\"extendedTextMessage\":{\"text\":\"Omo🤦‍♀️\",\"contextInfo\":{\"expiration\":0,\"ephemeralSettingTimestamp\":\"1750581097\",\"disappearingMode\":{\"initiator\":\"CHANGED_IN_CHAT\",\"trigger\":\"CHAT_SETTING\",\"initiatedByMe\":true}}},\"messageContextInfo\":{\"deviceListMetadata\":{\"senderTimestamp\":\"1755640756\",\"recipientKeyHash\":\"7/J6kF9xG3LB2A==\",\"recipientTimestamp\":\"1753574166\"},\"deviceListMetadataVersion\":2,\"messageSecret\":\"a0P/p1R5uUbtaHTCeoBU/6QJcNMI8HDg20BMDPml9xw=\"}}"
+  },
+  {
+    "time": "2025-08-20T20:16:30.793Z",
+    "jid": "2347061368807@s.whatsapp.net",
+    "type": "text",
+    "detail": "{\"extendedTextMessage\":{\"text\":\"I am making you angry🤦‍♀️\\nHow am I making you angry\",\"contextInfo\":{\"expiration\":0,\"ephemeralSettingTimestamp\":\"1750581097\",\"disappearingMode\":{\"initiator\":\"CHANGED_IN_CHAT\",\"trigger\":\"CHAT_SETTING\",\"initiatedByMe\":true}}},\"messageContextInfo\":{\"deviceListMetadata\":{\"senderTimestamp\":\"1755720884\",\"recipientKeyHash\":\"7/J6kF9xG3LB2A==\",\"recipientTimestamp\":\"1755606891\"},\"deviceListMetadataVersion\":2,\"messageSecret\":\"VFvukh+YH8z9qkAmpTc9I3MhhnbKq0OeOhe1GFXT5hE=\"}}"
+  },
+  {
+    "time": "2025-10-01T16:47:34.600Z",
+    "jid": "2347017747337@s.whatsapp.net",
+    "type": "extendedTextMessage",
+    "detail": "{\"extendedTextMessage\":{\"text\":\"\\\\sspam ‪+2347017747337‬,‪+2348161262401‬ 5 Hello World This Is Desire-eXe Spam command test message\",\"contextInfo\":{\"expiration\":0,\"ephemeralSettingTimestamp\":\"1759292197\",\"disappearingMode\":{\"initiator\":\"CHANGED_IN_CHAT\"}}}}"
+  },
+  {
+    "time": "2025-10-01T16:48:45.291Z",
+    "jid": "2347017747337@s.whatsapp.net",
+    "type": "extendedTextMessage",
+    "detail": "{\"extendedTextMessage\":{\"text\":\"\\\\sspam ‪+2347017747337‬,‪+2348161262401‬ 5 Hello World This Is Desire-eXe Spam command test message\",\"contextInfo\":{\"expiration\":0,\"ephemeralSettingTimestamp\":\"1759292197\",\"disappearingMode\":{\"initiator\":\"CHANGED_IN_CHAT\"}}}}"
+  },
+  {
+    "time": "2025-10-01T17:00:29.744Z",
+    "jid": "2347017747337@s.whatsapp.net",
+    "type": "reactionMessage",
+    "detail": "{\"reactionMessage\":{\"key\":{\"remoteJid\":\"2347017747337@s.whatsapp.net\",\"fromMe\":true,\"id\":\"3F6E97C059B5788B9DA8\"},\"text\":\"⌛\",\"senderTimestampMs\":\"1759338026975\"}}"
+  },
+  {
+    "time": "2025-10-01T17:00:31.590Z",
+    "jid": "2347017747337@s.whatsapp.net",
+    "type": "reactionMessage",
+    "detail": "{\"reactionMessage\":{\"key\":{\"remoteJid\":\"2347017747337@s.whatsapp.net\",\"fromMe\":true,\"id\":\"3F6E97C059B5788B9DA8\"},\"text\":\"✅\",\"senderTimestampMs\":\"1759338030099\"}}"
+  },
+  {
+    "time": "2025-10-01T17:05:38.576Z",
+    "jid": "2347017747337@s.whatsapp.net",
+    "type": "protocolMessage",
+    "detail": "{\"protocolMessage\":{\"key\":{\"remoteJid\":\"2347017747337@s.whatsapp.net\",\"fromMe\":true,\"id\":\"3FE1BE14F8E68B2B7D12\"},\"type\":\"REVOKE\"}}"
+  },
+  {
+    "time": "2025-10-01T17:08:57.865Z",
+    "jid": "2347017747337@s.whatsapp.net",
+    "type": "text",
+    "detail": "{\"extendedTextMessage\":{\"text\":\"\\\\sspam ‪+2347017747337‬,‪+2348161262401‬ 5 Hello World This Is Desire-eXe Spam command test message\",\"contextInfo\":{\"expiration\":0,\"ephemeralSettingTimestamp\":\"1759292197\",\"disappearingMode\":{\"initiator\":\"CHANGED_IN_CHAT\"}}}}"
+  },
+  {
+    "time": "2025-10-01T18:48:53.993Z",
+    "jid": "2349011784926@s.whatsapp.net",
+    "type": "text",
+    "detail": "{\"extendedTextMessage\":{\"text\":\"🙂‍↕️🙂‍↕️\",\"contextInfo\":{\"stanzaId\":\"AC1D24CF9C596B62DC4AE27FE6D2B5BD\",\"participant\":\"2349011784926@s.whatsapp.net\",\"quotedMessage\":{\"conversation\":\"Yeah\",\"messageContextInfo\":{\"messageSecret\":\"3i1SNJBj3KWTNJB33n4i/v9GLR+7EhWBehcwVjp+TSw=\"}},\"expiration\":0,\"ephemeralSettingTimestamp\":\"0\",\"disappearingMode\":{\"initiator\":\"CHANGED_IN_CHAT\"}}}}"
+  },
+  {
+    "time": "2025-10-01T19:05:09.340Z",
+    "jid": "2348161262401@s.whatsapp.net",
+    "type": "text",
+    "detail": "{\"extendedTextMessage\":{\"text\":\"🙂‍↕️🙂‍↕️🙂‍↕️\",\"contextInfo\":{\"expiration\":0,\"ephemeralSettingTimestamp\":\"0\",\"disappearingMode\":{\"initiator\":\"CHANGED_IN_CHAT\"}}}}"
+  },
+  {
+    "time": "2025-10-01T19:08:43.505Z",
+    "jid": "2348161262401@s.whatsapp.net",
+    "type": "text",
+    "detail": "{\"extendedTextMessage\":{\"text\":\"🙂‍↕️\",\"contextInfo\":{\"expiration\":0,\"ephemeralSettingTimestamp\":\"0\",\"disappearingMode\":{\"initiator\":\"CHANGED_IN_CHAT\"}}}}"
+  },
+  {
+    "time": "2025-10-01T19:13:16.412Z",
+    "jid": "2348161262401@s.whatsapp.net",
+    "type": "text",
+    "detail": "{\"extendedTextMessage\":{\"text\":\"🙂‍↕️🙂‍↕️\",\"contextInfo\":{\"expiration\":0,\"ephemeralSettingTimestamp\":\"0\",\"disappearingMode\":{\"initiator\":\"CHANGED_IN_CHAT\"}}}}"
+  },
+  {
+    "time": "2025-10-01T21:24:59.959Z",
+    "jid": "2348151810309@s.whatsapp.net",
+    "type": "text",
+    "detail": "{\"conversation\":\"🙂‍↔️\",\"messageContextInfo\":{\"deviceListMetadata\":{\"senderTimestamp\":\"1759353824\",\"recipientKeyHash\":\"JXqUFQ9efGADWQ==\",\"recipientTimestamp\":\"1759290311\"},\"deviceListMetadataVersion\":2,\"messageSecret\":\"4EA8lI7uyiiuYb0x0Y9oluOHOqH/S+NoYtAgkt9rd18=\"}}"
+  },
+  {
+    "time": "2025-10-01T21:28:53.904Z",
+    "jid": "2348151810309@s.whatsapp.net",
+    "type": "text",
+    "detail": "{\"conversation\":\"Sexy ass mf 😮‍💨\",\"messageContextInfo\":{\"deviceListMetadata\":{\"senderTimestamp\":\"1759354053\",\"recipientKeyHash\":\"JXqUFQ9efGADWQ==\",\"recipientTimestamp\":\"1759290311\"},\"deviceListMetadataVersion\":2,\"messageSecret\":\"YQn1kEDk+8OkdEpr59LcHewGfqLXQj89KeU+8kM6wmE=\"}}"
+  },
+  {
+    "time": "2025-10-01T22:26:13.568Z",
+    "jid": "2348090411955@s.whatsapp.net",
+    "type": "text",
+    "detail": "{\"extendedTextMessage\":{\"text\":\"🙆‍♀️🙆‍♀️🤦‍♀️🤦‍♀️🤦‍♀️\",\"previewType\":\"NONE\",\"contextInfo\":{\"expiration\":0,\"ephemeralSettingTimestamp\":\"1753143776\",\"disappearingMode\":{\"initiator\":\"CHANGED_IN_CHAT\",\"trigger\":\"UNKNOWN\",\"initiatedByMe\":false}},\"inviteLinkGroupTypeV2\":\"DEFAULT\"},\"messageContextInfo\":{\"deviceListMetadata\":{\"senderTimestamp\":\"1759306397\",\"recipientKeyHash\":\"JXqUFQ9efGADWQ==\",\"recipientTimestamp\":\"1759290311\"},\"deviceListMetadataVersion\":2,\"messageSecret\":\"HUrpjiIBk07Om5B39PJmw3ny1"
+  },
+  {
+    "time": "2025-10-01T22:38:30.277Z",
+    "jid": "2348090411955@s.whatsapp.net",
+    "type": "text",
+    "detail": "{\"extendedTextMessage\":{\"text\":\"🙆‍♀️\",\"previewType\":\"NONE\",\"contextInfo\":{\"expiration\":0,\"ephemeralSettingTimestamp\":\"1753143776\",\"disappearingMode\":{\"initiator\":\"CHANGED_IN_CHAT\",\"trigger\":\"UNKNOWN\"}},\"inviteLinkGroupTypeV2\":\"DEFAULT\"},\"messageContextInfo\":{\"deviceListMetadata\":{\"senderTimestamp\":\"1759306397\",\"recipientKeyHash\":\"JXqUFQ9efGADWQ==\",\"recipientTimestamp\":\"1759290311\"},\"deviceListMetadataVersion\":2,\"messageSecret\":\"SZ2NsArbR10ohAFxzGbBCe96zXuc5NfxWB3p/7P1W3E=\"}}"
+  },
+  {
+    "time": "2025-10-04T00:24:05.914Z",
+    "jid": "2348151810309@s.whatsapp.net",
+    "type": "text",
+    "detail": "{\"extendedTextMessage\":{\"text\":\"❤️‍🩹\",\"contextInfo\":{\"mentionedJid\":[],\"groupMentions\":[],\"expiration\":0,\"ephemeralSettingTimestamp\":{\"low\":0,\"high\":0,\"unsigned\":false},\"disappearingMode\":{\"initiator\":0}}}}"
+  },
+  {
+    "time": "2025-10-04T11:52:06.510Z",
+    "jid": "2347069714518@s.whatsapp.net",
+    "type": "text",
+    "detail": "{\"extendedTextMessage\":{\"text\":\"Nice❤️‍🩹\",\"previewType\":0,\"contextInfo\":{\"mentionedJid\":[],\"groupMentions\":[],\"stanzaId\":\"3FB204D15940255FA044\",\"participant\":\"2347017747337@s.whatsapp.net\",\"quotedMessage\":{\"videoMessage\":{\"interactiveAnnotations\":[],\"annotations\":[],\"processedVideos\":[],\"url\":\"https://mmg.whatsapp.net/v/t62.7161-24/557832061_1177041594475239_8707844582553597940_n.enc?ccb=11-4&oh=01_Q5Aa2gECuvmBWlXxoNCn8QTN0B0yJQCiobb3AwfACsse2NXvUA&oe=6907E77C&_nc_sid=5e03e0&mms3=true\",\"mimetyp"
+  },
+  {
+    "time": "2025-10-04T12:54:51.155Z",
+    "jid": "17077427503213@lid",
+    "type": "text",
+    "detail": "{\"extendedTextMessage\":{\"text\":\"🤦‍♀️not ready papi\",\"contextInfo\":{\"mentionedJid\":[],\"groupMentions\":[],\"stanzaId\":\"3FEA733F45BF2AEDB06E\",\"participant\":\"262869195174081@lid\",\"quotedMessage\":{\"conversation\":\"yes\"}}},\"messageContextInfo\":{\"deviceListMetadata\":{\"senderKeyIndexes\":[],\"recipientKeyIndexes\":[],\"senderTimestamp\":{\"low\":1759582488,\"high\":0,\"unsigned\":true},\"recipientKeyHash\":{\"type\":\"Buffer\",\"data\":[37,122,148,21,15,94,124,96,3,89]},\"recipientTimestamp\":{\"low\":1759290311,\"high\":0,\"unsi"
+  },
+  {
+    "time": "2025-10-04T15:47:11.070Z",
+    "jid": "2348151810309@s.whatsapp.net",
+    "type": "text",
+    "detail": "{\"conversation\":\"🤧🙂‍↔️🌚\",\"messageContextInfo\":{\"deviceListMetadata\":{\"senderKeyIndexes\":[],\"recipientKeyIndexes\":[],\"senderTimestamp\":{\"low\":1759592340,\"high\":0,\"unsigned\":true},\"recipientKeyHash\":{\"type\":\"Buffer\",\"data\":[37,122,148,21,15,94,124,96,3,89]},\"recipientTimestamp\":{\"low\":1759290311,\"high\":0,\"unsigned\":true}},\"deviceListMetadataVersion\":2,\"messageSecret\":{\"type\":\"Buffer\",\"data\":[64,151,205,229,188,39,252,123,92,73,56,112,91,179,6,225,169,81,65,154,92,193,105,110,87,115,207,117,252,"
+  },
+  {
+    "time": "2025-10-04T19:40:43.845Z",
+    "jid": "2348151810309@s.whatsapp.net",
+    "type": "text",
+    "detail": "{\"conversation\":\"Bad boy 😮‍💨\",\"messageContextInfo\":{\"deviceListMetadata\":{\"senderKeyIndexes\":[],\"recipientKeyIndexes\":[],\"senderTimestamp\":{\"low\":1759606503,\"high\":0,\"unsigned\":true},\"recipientKeyHash\":{\"type\":\"Buffer\",\"data\":[37,122,148,21,15,94,124,96,3,89]},\"recipientTimestamp\":{\"low\":1759290311,\"high\":0,\"unsigned\":true}},\"deviceListMetadataVersion\":2,\"messageSecret\":{\"type\":\"Buffer\",\"data\":[46,201,127,56,208,148,99,29,75,68,109,45,225,90,174,2,105,169,80,235,138,81,44,7,196,88,155,65,175,9"
+  },
+  {
+    "time": "2025-10-04T20:13:17.744Z",
+    "jid": "2348112542429@s.whatsapp.net",
+    "type": "text",
+    "detail": "{\"conversation\":\"🤦‍♀️🤦‍♀️\",\"messageContextInfo\":{\"deviceListMetadata\":{\"senderKeyIndexes\":[],\"recipientKeyIndexes\":[],\"recipientKeyHash\":{\"type\":\"Buffer\",\"data\":[37,122,148,21,15,94,124,96,3,89]},\"recipientTimestamp\":{\"low\":1759290311,\"high\":0,\"unsigned\":true}},\"deviceListMetadataVersion\":2,\"messageSecret\":{\"type\":\"Buffer\",\"data\":[87,108,108,158,85,68,178,122,36,124,213,157,23,68,237,64,17,81,90,114,253,89,172,204,220,87,21,201,242,19,229,193]}}}"
+  },
+  {
+    "time": "2025-10-04T20:26:05.648Z",
+    "jid": "2348090411955@s.whatsapp.net",
+    "type": "text",
+    "detail": "{\"extendedTextMessage\":{\"text\":\"😹😹🙆‍♀️\",\"previewType\":0,\"contextInfo\":{\"mentionedJid\":[],\"groupMentions\":[],\"expiration\":0,\"ephemeralSettingTimestamp\":{\"low\":1753143776,\"high\":0,\"unsigned\":false},\"disappearingMode\":{\"initiator\":0,\"trigger\":0,\"initiatedByMe\":false}},\"inviteLinkGroupTypeV2\":0},\"messageContextInfo\":{\"deviceListMetadata\":{\"senderKeyIndexes\":[],\"recipientKeyIndexes\":[],\"senderTimestamp\":{\"low\":1759306397,\"high\":0,\"unsigned\":true},\"recipientKeyHash\":{\"type\":\"Buffer\",\"data\":[37,122,"
+  },
+  {
+    "time": "2025-10-05T01:38:39.909Z",
+    "jid": "27752388743@s.whatsapp.net",
+    "type": "text",
+    "detail": "{\"extendedTextMessage\":{\"text\":\"O shiii🤦🏽‍♀️😹\",\"previewType\":0,\"contextInfo\":{\"mentionedJid\":[],\"groupMentions\":[],\"stanzaId\":\"3F82DD00B54C6EE31C5C\",\"participant\":\"2347017747337@s.whatsapp.net\",\"quotedMessage\":{\"conversation\":\"you mean today bah\"}},\"inviteLinkGroupTypeV2\":0},\"messageContextInfo\":{\"deviceListMetadata\":{\"senderKeyIndexes\":[],\"recipientKeyIndexes\":[],\"recipientKeyHash\":{\"type\":\"Buffer\",\"data\":[37,122,148,21,15,94,124,96,3,89]},\"recipientTimestamp\":{\"low\":1759290311,\"high\":0,\"uns"
+  },
+  {
+    "time": "2025-10-05T03:29:42.798Z",
+    "jid": "17077427503213@lid",
+    "type": "text",
+    "detail": "{\"conversation\":\"Maybe 🤷‍♀️\",\"messageContextInfo\":{\"deviceListMetadata\":{\"senderKeyIndexes\":[],\"recipientKeyIndexes\":[],\"senderTimestamp\":{\"low\":1759634510,\"high\":0,\"unsigned\":true},\"recipientKeyHash\":{\"type\":\"Buffer\",\"data\":[37,122,148,21,15,94,124,96,3,89]},\"recipientTimestamp\":{\"low\":1759290311,\"high\":0,\"unsigned\":true}},\"deviceListMetadataVersion\":2,\"messageSecret\":{\"type\":\"Buffer\",\"data\":[81,136,78,192,210,222,74,142,101,102,192,36,76,176,111,221,236,177,71,88,14,215,9,196,133,168,217,221,"
+  },
+  {
+    "time": "2025-10-05T12:07:23.332Z",
+    "jid": "2348151810309@s.whatsapp.net",
+    "type": "text",
+    "detail": "{\"extendedTextMessage\":{\"text\":\"You didn’t spell my name right 😮‍💨\",\"contextInfo\":{\"mentionedJid\":[],\"groupMentions\":[],\"stanzaId\":\"3F2D8CE950566DC4093E\",\"participant\":\"2347017747337@s.whatsapp.net\",\"quotedMessage\":{\"imageMessage\":{\"interactiveAnnotations\":[],\"scanLengths\":[],\"annotations\":[],\"url\":\"https://mmg.whatsapp.net/o1/v/t24/f2/m269/AQOdrpBFialP6FGuhXiALaOP3koELzOlSF-VOvMHEafWdyncYai-cp-OZcmT0D8N0yl_36539bnmCnfR1426v95fL1hVaQLIF3yebOJsnw?ccb=9-4&oh=01_Q5Aa2gEhqb_qFalqWQwxOTPp_C1KR6MJOU"
+  },
+  {
+    "time": "2025-10-05T12:57:44.017Z",
+    "jid": "2348151810309@s.whatsapp.net",
+    "type": "text",
+    "detail": "{\"extendedTextMessage\":{\"text\":\"You don’t have to worry about that 😮‍💨\",\"contextInfo\":{\"mentionedJid\":[],\"groupMentions\":[],\"expiration\":0,\"ephemeralSettingTimestamp\":{\"low\":1759664749,\"high\":0,\"unsigned\":false},\"disappearingMode\":{\"initiator\":0,\"trigger\":1,\"initiatedByMe\":true}}},\"messageContextInfo\":{\"deviceListMetadata\":{\"senderKeyIndexes\":[],\"recipientKeyIndexes\":[],\"senderTimestamp\":{\"low\":1759668283,\"high\":0,\"unsigned\":true},\"recipientKeyHash\":{\"type\":\"Buffer\",\"data\":[37,122,148,21,15,94"
+  },
+  {
+    "time": "2025-10-05T15:54:46.326Z",
+    "jid": "2348090411955@s.whatsapp.net",
+    "type": "text",
+    "detail": "{\"extendedTextMessage\":{\"text\":\"I did sha🙆‍♀️\",\"previewType\":0,\"contextInfo\":{\"mentionedJid\":[],\"groupMentions\":[],\"expiration\":0,\"ephemeralSettingTimestamp\":{\"low\":1759620839,\"high\":0,\"unsigned\":false},\"disappearingMode\":{\"initiator\":0,\"trigger\":0,\"initiatedByMe\":false}},\"inviteLinkGroupTypeV2\":0},\"messageContextInfo\":{\"deviceListMetadata\":{\"senderKeyIndexes\":[],\"recipientKeyIndexes\":[],\"senderTimestamp\":{\"low\":1759661746,\"high\":0,\"unsigned\":true},\"recipientKeyHash\":{\"type\":\"Buffer\",\"data\":[37"
+  },
+  {
+    "time": "2025-10-05T16:06:23.377Z",
+    "jid": "18002428478@s.whatsapp.net",
+    "type": "text",
+    "detail": "{\"extendedTextMessage\":{\"text\":\"[05/10/2025 13:20] ᅠᅠᅠ: you talked about your schoolmate saying he wants you, few minutes i later your pfp changed without you telling me you wanted to change it, you went off early (thought you had blocked me) i checked your bio (was thinking i did something wrong at first so i read yesterday's chat all over) \\nwhat else do you think i must have been thinking i waited all night so we could talk about it but nah you didn't come online or you prolly blocked\\n[05/10"
+  },
+  {
+    "time": "2025-10-06T09:33:42.854Z",
+    "jid": "2347032373040@s.whatsapp.net",
+    "type": "text",
+    "detail": "{\"extendedTextMessage\":{\"text\":\"❤️‍🩹❤️‍🩹\",\"contextInfo\":{\"mentionedJid\":[],\"groupMentions\":[],\"expiration\":0,\"ephemeralSettingTimestamp\":{\"low\":1759670278,\"high\":0,\"unsigned\":false},\"disappearingMode\":{\"initiator\":0}}}}"
+  },
+  {
+    "time": "2025-10-06T10:03:19.436Z",
+    "jid": "2347061368807@s.whatsapp.net",
+    "type": "text",
+    "detail": "{\"extendedTextMessage\":{\"text\":\"We are🤷‍♀️\",\"contextInfo\":{\"mentionedJid\":[],\"groupMentions\":[],\"stanzaId\":\"3FDA38A4272E30A5665A\",\"participant\":\"2347017747337@s.whatsapp.net\",\"quotedMessage\":{\"extendedTextMessage\":{\"text\":\"wanted to be chill with you\",\"contextInfo\":{\"mentionedJid\":[],\"groupMentions\":[],\"expiration\":86400,\"ephemeralSettingTimestamp\":{\"low\":1759546958,\"high\":0,\"unsigned\":false},\"disappearingMode\":{\"initiator\":0,\"trigger\":1,\"initiatedByMe\":false}}}},\"expiration\":86400,\"ephemeralSe"
+  },
+  {
+    "time": "2025-10-06T10:08:41.818Z",
+    "jid": "2347061368807@s.whatsapp.net",
+    "type": "text",
+    "detail": "{\"extendedTextMessage\":{\"text\":\"🤷‍♀️🤷‍♀️\",\"contextInfo\":{\"mentionedJid\":[],\"groupMentions\":[],\"stanzaId\":\"3F4117131C7A7B08F548\",\"participant\":\"2347017747337@s.whatsapp.net\",\"quotedMessage\":{\"extendedTextMessage\":{\"text\":\"ain't doing this with you\",\"contextInfo\":{\"mentionedJid\":[],\"groupMentions\":[],\"expiration\":0,\"ephemeralSettingTimestamp\":{\"low\":1759745276,\"high\":0,\"unsigned\":false},\"disappearingMode\":{\"initiator\":0,\"trigger\":1,\"initiatedByMe\":true}}}},\"expiration\":0,\"ephemeralSettingTimesta"
+  },
+  {
+    "time": "2025-10-06T10:12:11.563Z",
+    "jid": "2347061368807@s.whatsapp.net",
+    "type": "text",
+    "detail": "{\"extendedTextMessage\":{\"text\":\"🚶‍♂️🚶‍♂️🚶‍♂️🚶‍♂️🚶‍♂️🚶‍♂️🚶‍♂️\",\"contextInfo\":{\"mentionedJid\":[],\"groupMentions\":[],\"expiration\":0,\"ephemeralSettingTimestamp\":{\"low\":1759745416,\"high\":0,\"unsigned\":false},\"disappearingMode\":{\"initiator\":0}}}}"
+  },
+  {
+    "time": "2025-10-06T10:22:35.277Z",
+    "jid": "2347061368807@s.whatsapp.net",
+    "type": "text",
+    "detail": "{\"extendedTextMessage\":{\"text\":\"🤷‍♀️\",\"contextInfo\":{\"mentionedJid\":[],\"groupMentions\":[],\"expiration\":0,\"ephemeralSettingTimestamp\":{\"low\":1759746019,\"high\":0,\"unsigned\":false},\"disappearingMode\":{\"initiator\":0,\"trigger\":1,\"initiatedByMe\":true}}},\"messageContextInfo\":{\"deviceListMetadata\":{\"senderKeyIndexes\":[],\"recipientKeyIndexes\":[],\"senderTimestamp\":{\"low\":1759743882,\"high\":0,\"unsigned\":true},\"recipientKeyHash\":{\"type\":\"Buffer\",\"data\":[37,138,42,198,162,244,196,18,137,16]},\"recipientTimest"
+  },
+  {
+    "time": "2025-10-06T10:42:17.861Z",
+    "jid": "2347061368807@s.whatsapp.net",
+    "type": "text",
+    "detail": "{\"extendedTextMessage\":{\"text\":\"🤦‍♀️\",\"contextInfo\":{\"mentionedJid\":[],\"groupMentions\":[],\"expiration\":0,\"ephemeralSettingTimestamp\":{\"low\":1759747316,\"high\":0,\"unsigned\":false},\"disappearingMode\":{\"initiator\":0,\"trigger\":1,\"initiatedByMe\":true}}},\"messageContextInfo\":{\"deviceListMetadata\":{\"senderKeyIndexes\":[],\"recipientKeyIndexes\":[],\"senderTimestamp\":{\"low\":1759747297,\"high\":0,\"unsigned\":true},\"recipientKeyHash\":{\"type\":\"Buffer\",\"data\":[37,138,42,198,162,244,196,18,137,16]},\"recipientTimest"
+  },
+  {
+    "time": "2025-10-06T10:47:16.553Z",
+    "jid": "2347061368807@s.whatsapp.net",
+    "type": "text",
+    "detail": "{\"extendedTextMessage\":{\"text\":\"Didn’t say anything bad to you🤷‍♀️\",\"contextInfo\":{\"mentionedJid\":[],\"groupMentions\":[],\"expiration\":0,\"ephemeralSettingTimestamp\":{\"low\":1759747316,\"high\":0,\"unsigned\":false},\"disappearingMode\":{\"initiator\":0,\"trigger\":1,\"initiatedByMe\":true}}},\"messageContextInfo\":{\"deviceListMetadata\":{\"senderKeyIndexes\":[],\"recipientKeyIndexes\":[],\"senderTimestamp\":{\"low\":1759747297,\"high\":0,\"unsigned\":true},\"recipientKeyHash\":{\"type\":\"Buffer\",\"data\":[37,138,42,198,162,244,19"
+  },
+  {
+    "time": "2025-10-06T10:51:40.383Z",
+    "jid": "2347061368807@s.whatsapp.net",
+    "type": "text",
+    "detail": "{\"extendedTextMessage\":{\"text\":\"Omo🤦‍♀️\",\"contextInfo\":{\"mentionedJid\":[],\"groupMentions\":[],\"expiration\":0,\"ephemeralSettingTimestamp\":{\"low\":1759747316,\"high\":0,\"unsigned\":false},\"disappearingMode\":{\"initiator\":0,\"trigger\":1,\"initiatedByMe\":true}}},\"messageContextInfo\":{\"deviceListMetadata\":{\"senderKeyIndexes\":[],\"recipientKeyIndexes\":[],\"senderTimestamp\":{\"low\":1759747297,\"high\":0,\"unsigned\":true},\"recipientKeyHash\":{\"type\":\"Buffer\",\"data\":[37,138,42,198,162,244,196,18,137,16]},\"recipientTim"
+  },
+  {
+    "time": "2025-10-06T17:30:32.293Z",
+    "jid": "18002428478@s.whatsapp.net",
+    "type": "text",
+    "detail": "{\"conversation\":\"💬\\n\\n*grins* 😏 My soulmate as a dessert? Definitely a molten lava cake—rich, warm, with a surprise that melts your heart every time. 🍫🔥\\n\\nYour turn! If your vibe was a superpower, what would it be? ⚡🦸‍♀️ (And no, “love”—that’s too obvious. 😜)\",\"messageContextInfo\":{\"deviceListMetadata\":{\"senderKeyIndexes\":[],\"recipientKeyIndexes\":[],\"recipientKeyHash\":{\"type\":\"Buffer\",\"data\":[37,138,42,198,162,244,196,18,137,16]},\"recipientTimestamp\":{\"low\":1759743962,\"high\":0,\"unsigned\":"
+  },
+  {
+    "time": "2025-10-06T18:14:59.851Z",
+    "jid": "2347017747337@s.whatsapp.net",
+    "type": "text",
+    "detail": "{\"extendedTextMessage\":{\"text\":\"*📋 Groups List:*\\n\\n1. Creekveiw Estates💞💕\\n🆔: 120363399635498467@g.us\\n👥 Members: 1\\n\\n2. SINSTERS (SSS)\\n🆔: 120363384669427356@g.us\\n👥 Members: 1\\n\\n3. General Tribe Community Announcements Page\\n🆔: 120363377686463533@g.us\\n👥 Members: 12\\n\\n4. Just For Fun\\n🆔: 120363370293754667@g.us\\n👥 Members: 11\\n\\n5. PREXZYVILLA\\n🆔: 120363350949535751@g.us\\n👥 Members: 1\\n\\n6. Fun And Games\\n🆔: 120363330223327302@g.us\\n👥 Members: 4\\n\\n7. AFRICA AZTEC COMMUNITY "
+  },
+  {
+    "time": "2025-10-06T22:36:13.290Z",
+    "jid": "2347017747337@s.whatsapp.net",
+    "type": "text",
+    "detail": "{\"extendedTextMessage\":{\"text\":\"give me a menu for all these commands \\nconst { downloadMediaMessage } = require('@whiskeysockets/baileys');\\nconst { exec } = require('child_process');\\nconst puppeteer = require('puppeteer');\\nconst fs = require('fs');\\nconst path = require('path');\\nconst gTTS = require('gtts');\\nconst Tesseract = require('tesseract.js');\\nconst { Octokit } = require('@octokit/rest');\\nconst QRCode = require('qrcode');\\nconst { GeminiMessage, GeminiImage, GeminiRoastingMessage,"
+  },
+  {
+    "time": "2025-10-07T12:15:56.596Z",
+    "jid": "2347017747337@s.whatsapp.net",
+    "type": "text",
+    "detail": "{\"extendedTextMessage\":{\"text\":\"S​\"}}"
+  },
+  {
+    "time": "2025-10-07T12:16:17.904Z",
+    "jid": "2348161262401@s.whatsapp.net",
+    "type": "text",
+    "detail": "{\"extendedTextMessage\":{\"text\":\"S​\"}}"
+  },
+  {
+    "time": "2025-10-07T14:21:36.079Z",
+    "jid": "18002428478@s.whatsapp.net",
+    "type": "text",
+    "detail": "{\"conversation\":\"It's not childish — it's playful. If your dynamic with her allows for teasing and light flirting, that kind of message fits perfectly. But if you’re unsure, you can always go for a smoother version like:\\n\\n*\\\"There’s something I wanted to ask you earlier, but I ended up overthinking it 🤦‍♂️\\\"*\\n\\nIt keeps the curiosity without sounding too jokey. Want to try a version like that instead?\",\"messageContextInfo\":{\"deviceListMetadata\":{\"senderKeyIndexes\":[],\"recipientKeyIndexes\":[]"
+  },
+  {
+    "time": "2025-10-07T22:13:01.849Z",
+    "jid": "2348161262401@s.whatsapp.net",
+    "type": "text",
+    "detail": "{\"extendedTextMessage\":{\"text\":\"🕵️‍♂️ *Detective Mode*\\n\\nI need a target to investigate!\\n\\nReply to user or: ~whois-gc @suspect\",\"contextInfo\":{\"participant\":\"2347017747337@s.whatsapp.net\",\"stanzaId\":\"3F6104EC4F52A9F0A5DF\",\"quotedMessage\":{\"extendedTextMessage\":{\"text\":\"\\\\whois-gc\"}}}}}"
+  },
+  {
+    "time": "2025-10-07T22:56:10.732Z",
+    "jid": "2347017747337@s.whatsapp.net",
+    "type": "text",
+    "detail": "{\"extendedTextMessage\":{\"text\":\"👨‍💻\",\"contextInfo\":{\"mentionedJid\":[],\"groupMentions\":[],\"expiration\":0,\"ephemeralSettingTimestamp\":{\"low\":1759292197,\"high\":0,\"unsigned\":false},\"disappearingMode\":{\"initiator\":0}}}}"
+  },
+  {
+    "time": "2025-10-08T10:24:34.947Z",
+    "jid": "120363420941246798@g.us",
+    "type": "group_mention",
+    "detail": "User 116076373344282@lid mentioned everyone - MESSAGE DELETED"
+  },
+  {
+    "time": "2025-10-08T10:43:23.513Z",
+    "jid": "2347017747337@s.whatsapp.net",
+    "type": "text",
+    "detail": "{\"extendedTextMessage\":{\"text\":\"👨‍💻\",\"contextInfo\":{\"mentionedJid\":[],\"groupMentions\":[],\"expiration\":0,\"ephemeralSettingTimestamp\":{\"low\":1759292197,\"high\":0,\"unsigned\":false},\"disappearingMode\":{\"initiator\":0}}}}"
+  },
+  {
+    "time": "2025-10-08T11:14:04.653Z",
+    "jid": "2347017747337@s.whatsapp.net",
+    "type": "text",
+    "detail": "{\"extendedTextMessage\":{\"text\":\"await sock.sendMessage(chatId, { react: { text: \\\"👨‍💻\\\", key: msg.key } });\",\"contextInfo\":{\"mentionedJid\":[],\"groupMentions\":[],\"expiration\":0,\"ephemeralSettingTimestamp\":{\"low\":1759292197,\"high\":0,\"unsigned\":false},\"disappearingMode\":{\"initiator\":0}}}}"
+  },
+  {
+    "time": "2025-10-08T11:14:44.101Z",
+    "jid": "2347017747337@s.whatsapp.net",
+    "type": "text",
+    "detail": "{\"extendedTextMessage\":{\"text\":\"👨‍💻\\\\\",\"contextInfo\":{\"mentionedJid\":[],\"groupMentions\":[],\"expiration\":0,\"ephemeralSettingTimestamp\":{\"low\":1759292197,\"high\":0,\"unsigned\":false},\"disappearingMode\":{\"initiator\":0}}}}"
+  },
+  {
+    "time": "2025-10-08T13:12:40.629Z",
+    "jid": "120363420941246798@g.us",
+    "type": "group_mention",
+    "detail": "User 203655001190614@lid mentioned everyone - MESSAGE DELETED"
+  },
+  {
+    "time": "2025-10-08T14:09:44.199Z",
+    "jid": "120363420941246798@g.us",
+    "type": "group_mention",
+    "detail": "User 106043296235638@lid mentioned everyone - MESSAGE DELETED"
+  },
+  {
+    "time": "2025-10-08T20:11:39.958Z",
+    "jid": "2347061368807@s.whatsapp.net",
+    "type": "text",
+    "detail": "{\"extendedTextMessage\":{\"text\":\"So🤷‍♀️\",\"contextInfo\":{\"mentionedJid\":[],\"groupMentions\":[],\"expiration\":86400,\"ephemeralSettingTimestamp\":{\"low\":1759872115,\"high\":0,\"unsigned\":false},\"disappearingMode\":{\"initiator\":0,\"trigger\":1,\"initiatedByMe\":true}}},\"messageContextInfo\":{\"deviceListMetadata\":{\"senderKeyIndexes\":[],\"recipientKeyIndexes\":[],\"senderTimestamp\":{\"low\":1759954239,\"high\":0,\"unsigned\":true},\"recipientKeyHash\":{\"type\":\"Buffer\",\"data\":[37,138,42,198,162,244,196,18,137,16]},\"recipient"
+  },
+  {
+    "time": "2025-10-08T20:38:54.856Z",
+    "jid": "2347061368807@s.whatsapp.net",
+    "type": "text",
+    "detail": "{\"extendedTextMessage\":{\"text\":\"Forgive me🧎‍♀️\",\"contextInfo\":{\"mentionedJid\":[],\"groupMentions\":[],\"expiration\":86400,\"ephemeralSettingTimestamp\":{\"low\":1759872115,\"high\":0,\"unsigned\":false},\"disappearingMode\":{\"initiator\":0,\"trigger\":1,\"initiatedByMe\":true}}},\"messageContextInfo\":{\"deviceListMetadata\":{\"senderKeyIndexes\":[],\"recipientKeyIndexes\":[],\"senderTimestamp\":{\"low\":1759955079,\"high\":0,\"unsigned\":true},\"recipientKeyHash\":{\"type\":\"Buffer\",\"data\":[37,138,42,198,162,244,196,18,137,16]},\"r"
+  },
+  {
+    "time": "2025-10-08T20:50:42.508Z",
+    "jid": "120363420941246798@g.us",
+    "type": "group_mention",
+    "detail": "User 219687862464631@lid mentioned everyone - MESSAGE DELETED"
+  },
+  {
+    "time": "2025-10-08T21:27:34.449Z",
+    "jid": "120363420941246798@g.us",
+    "type": "group_mention",
+    "detail": "User 219687862464631@lid mentioned everyone - MESSAGE DELETED"
+  },
+  {
+    "time": "2025-10-08T21:27:56.827Z",
+    "jid": "120363420941246798@g.us",
+    "type": "group_mention",
+    "detail": "User 255348942307493@lid mentioned everyone - MESSAGE DELETED"
+  },
+  {
+    "time": "2025-10-08T21:28:18.854Z",
+    "jid": "120363420941246798@g.us",
+    "type": "group_mention",
+    "detail": "User 255348942307493@lid mentioned everyone - MESSAGE DELETED"
+  },
+  {
+    "time": "2025-10-08T21:29:10.865Z",
+    "jid": "120363420941246798@g.us",
+    "type": "group_mention",
+    "detail": "User 255348942307493@lid mentioned everyone - MESSAGE DELETED"
+  },
+  {
+    "time": "2025-10-08T21:38:50.236Z",
+    "jid": "120363420941246798@g.us",
+    "type": "group_mention",
+    "detail": "User 255348942307493@lid mentioned everyone - MESSAGE DELETED"
+  },
+  {
+    "time": "2025-10-08T21:44:14.678Z",
+    "jid": "120363420941246798@g.us",
+    "type": "group_mention",
+    "detail": "User 255348942307493@lid mentioned everyone - MESSAGE DELETED"
+  },
+  {
+    "time": "2025-10-09T06:56:54.462Z",
+    "jid": "120363420941246798@g.us",
+    "type": "group_mention",
+    "detail": "User 227938779799778@lid mentioned everyone - MESSAGE DELETED"
+  },
+  {
+    "time": "2025-10-09T16:49:25.343Z",
+    "jid": "2349030653986@s.whatsapp.net",
+    "type": "text",
+    "detail": "{\"extendedTextMessage\":{\"text\":\"[05/10/2025 00:03] ᅠᅠᅠ: \\\\dis-on\\n[05/10/2025 12:47] ᅠᅠᅠ: i see\\n[05/10/2025 12:52] ᅠᅠᅠ: so you're ok with us like this?\\n[05/10/2025 12:53] My Secret Obsession ❣️😜❤️: Isn’t this what you wanted 🙂\\n[05/10/2025 12:54] ᅠᅠᅠ: what i wanted?\\n[05/10/2025 12:54] My Secret Obsession ❣️😜❤️: Yh?\\n[05/10/2025 12:54] ᅠᅠᅠ: since when\\n[05/10/2025 12:55] ᅠᅠᅠ: you mean since i noticed you changed your pfp and your bio rii\\n[05/10/2025 12:55] My Secret Obsession ❣️😜❤️: Since"
+  },
+  {
+    "time": "2025-10-09T18:16:06.608Z",
+    "jid": "120363420941246798@g.us",
+    "type": "group_mention",
+    "detail": "User 219687862464631@lid mentioned everyone - MESSAGE DELETED"
+  },
+  {
+    "time": "2025-10-09T18:17:10.310Z",
+    "jid": "120363420941246798@g.us",
+    "type": "group_mention",
+    "detail": "User 219687862464631@lid mentioned everyone - MESSAGE DELETED"
+  },
+  {
+    "time": "2025-10-09T21:09:42.128Z",
+    "jid": "2347017747337@s.whatsapp.net",
+    "type": "text",
+    "detail": "{\"extendedTextMessage\":{\"text\":\"💀 *DΞSIRΞ 𝙀𝙓Ξ 𝘽𝙊𝙏* 💀  \\n_Unleashing Temptation & Digital Chaos_\\n\\n⚔ *EXECUTOR:* _@Desire eXe 🥷_\\n\\n⚡ *STATUS:* _ONLINE_ ($(uptime))  \\n\\n🧠 *RAM:* $(RAM)  \\n\\n👑 *OWNER:* $(metadataname)  \\n\\n🔑 *PREFIX:* ${prefix} _*(CHOOSE YOUR SIN)*_\\n\\n👨‍💻 *DESIRE:* _136 COMMANDS_\\n\\n\\n\\n👑 *𝐎𝐖𝐍𝐄𝐑 𝐂𝐎𝐌𝐌𝐀𝐍𝐃𝐒* | _Absolute Power_\\n\\n▢ *${prefix}owner/.contact* → _Kneel before your creator_ ☎️  \\n\\n▢ *${prefix}Desire-off* → _System shutdown_ 😴  \\n\\n▢ *${pre"
+  },
+  {
+    "time": "2025-10-10T08:35:45.027Z",
+    "jid": "120363420941246798@g.us",
+    "type": "group_mention",
+    "detail": "User 203655001190614@lid mentioned everyone - MESSAGE DELETED"
+  },
+  {
+    "time": "2025-10-10T08:52:33.048Z",
+    "jid": "120363420941246798@g.us",
+    "type": "group_mention",
+    "detail": "User 110162052436120@lid mentioned everyone - MESSAGE DELETED"
+  },
+  {
+    "time": "2025-10-10T16:47:26.207Z",
+    "jid": "2348161262401@s.whatsapp.net",
+    "type": "text",
+    "detail": "{\"extendedTextMessage\":{\"text\":\"🕵️‍♂️ *Detective Mode*\\n\\nI need a target to investigate!\\n\\nReply to user or: ~whois-gc @suspect\",\"contextInfo\":{\"participant\":\"2347017747337@s.whatsapp.net\",\"stanzaId\":\"3FE1F58DB77D28B38333\",\"quotedMessage\":{\"extendedTextMessage\":{\"text\":\"\\\\detect\"}}}}}"
+  },
+  {
+    "time": "2025-10-10T18:18:10.433Z",
+    "jid": "18002428478@s.whatsapp.net",
+    "type": "text",
+    "detail": "{\"conversation\":\"To reply in that same *“yare yare”* tone (tired, mildly annoyed, or sarcastic), you can use phrases like:\\n\\n- *\\\"Sigh… here we go again.\\\"*\\n- *\\\"Sheesh, seriously?\\\"*\\n- *\\\"Tch, what a drag.\\\"*\\n- *\\\"Ugh, not this again.\\\"*\\n- *\\\"Man… whatever.\\\"*\\n- *\\\"Classic.\\\"* (with a deadpan or unimpressed tone)\\n\\nWant it to sound more playful or dramatic? Add an emoji like 😮‍💨🙄😒 or say it slowly like:  \\n*“Yaaare yaaare…” 😮‍💨*  \\n\\nLet me know the situation, and I can tailor it b"
+  },
+  {
+    "time": "2025-10-10T20:15:21.460Z",
+    "jid": "120363420941246798@g.us",
+    "type": "group_mention",
+    "detail": "User 238817596408045@lid mentioned everyone - MESSAGE DELETED"
+  },
+  {
+    "time": "2025-10-10T20:16:47.099Z",
+    "jid": "120363420941246798@g.us",
+    "type": "group_mention",
+    "detail": "User 238817596408045@lid mentioned everyone - MESSAGE DELETED"
+  },
+  {
+    "time": "2025-10-10T22:56:17.829Z",
+    "jid": "120363420941246798@g.us",
+    "type": "group_mention",
+    "detail": "User 106043296235638@lid mentioned everyone - MESSAGE DELETED"
+  },
+  {
+    "time": "2025-10-10T22:56:22.656Z",
+    "jid": "120363420941246798@g.us",
+    "type": "group_mention",
+    "detail": "User 106043296235638@lid mentioned everyone - MESSAGE DELETED"
+  },
+  {
+    "time": "2025-10-11T10:47:37.495Z",
+    "jid": "120363420941246798@g.us",
+    "type": "group_mention",
+    "detail": "User 126766630854694@lid mentioned everyone - MESSAGE DELETED"
+  },
+  {
+    "time": "2025-10-11T10:47:56.317Z",
+    "jid": "120363420941246798@g.us",
+    "type": "group_mention",
+    "detail": "User 106043296235638@lid mentioned everyone - MESSAGE DELETED"
+  },
+  {
+    "time": "2025-10-11T10:48:39.485Z",
+    "jid": "120363420941246798@g.us",
+    "type": "group_mention",
+    "detail": "User 126766630854694@lid mentioned everyone - MESSAGE DELETED"
+  },
+  {
+    "time": "2025-10-11T10:53:21.628Z",
+    "jid": "120363420941246798@g.us",
+    "type": "group_mention",
+    "detail": "User 10768137379914@lid mentioned everyone - MESSAGE DELETED"
+  },
+  {
+    "time": "2025-10-11T11:25:14.067Z",
+    "jid": "2347017747337@s.whatsapp.net",
+    "type": "text",
+    "detail": "{\"extendedTextMessage\":{\"text\":\"🙂‍↔\",\"contextInfo\":{\"mentionedJid\":[],\"groupMentions\":[],\"expiration\":0,\"ephemeralSettingTimestamp\":{\"low\":1759927118,\"high\":0,\"unsigned\":false},\"disappearingMode\":{\"initiator\":0}}}}"
+  },
+  {
+    "time": "2025-10-11T12:08:52.420Z",
+    "jid": "2348151810309@s.whatsapp.net",
+    "type": "text",
+    "detail": "{\"extendedTextMessage\":{\"text\":\"🙂‍↔️\",\"contextInfo\":{\"mentionedJid\":[],\"groupMentions\":[],\"expiration\":0,\"ephemeralSettingTimestamp\":{\"low\":1759664749,\"high\":0,\"unsigned\":false},\"disappearingMode\":{\"initiator\":0,\"trigger\":1,\"initiatedByMe\":true}}},\"messageContextInfo\":{\"deviceListMetadata\":{\"senderKeyIndexes\":[],\"recipientKeyIndexes\":[],\"senderTimestamp\":{\"low\":1760184251,\"high\":0,\"unsigned\":true},\"recipientKeyHash\":{\"type\":\"Buffer\",\"data\":[37,138,42,198,162,244,196,18,137,16]},\"recipientTimest"
+  },
+  {
+    "time": "2025-10-11T16:22:34.101Z",
+    "jid": "120363420941246798@g.us",
+    "type": "group_mention",
+    "detail": "User 10768137379914@lid mentioned everyone - MESSAGE DELETED"
+  },
+  {
+    "time": "2025-10-11T16:22:49.412Z",
+    "jid": "120363420941246798@g.us",
+    "type": "group_mention",
+    "detail": "User 181291173597404@lid mentioned everyone - MESSAGE DELETED"
+  },
+  {
+    "time": "2025-10-11T16:22:50.421Z",
+    "jid": "120363420941246798@g.us",
+    "type": "group_mention",
+    "detail": "User 181291173597404@lid mentioned everyone - MESSAGE DELETED"
+  },
+  {
+    "time": "2025-10-11T17:18:43.994Z",
+    "jid": "120363420941246798@g.us",
+    "type": "group_mention",
+    "detail": "User 181291173597404@lid mentioned everyone - MESSAGE DELETED"
+  },
+  {
+    "time": "2025-10-11T18:09:20.515Z",
+    "jid": "120363420941246798@g.us",
+    "type": "group_mention",
+    "detail": "User 47374110052432@lid mentioned everyone - MESSAGE DELETED"
+  },
+  {
+    "time": "2025-10-11T18:20:46.290Z",
+    "jid": "120363420941246798@g.us",
+    "type": "group_mention",
+    "detail": "User 138869798396101@lid mentioned everyone - MESSAGE DELETED"
+  },
+  {
+    "time": "2025-10-11T19:09:55.604Z",
+    "jid": "120363420941246798@g.us",
+    "type": "group_mention",
+    "detail": "User 10768137379914@lid mentioned everyone - MESSAGE DELETED"
+  },
+  {
+    "time": "2025-10-11T22:01:02.615Z",
+    "jid": "2347032373040@s.whatsapp.net",
+    "type": "text",
+    "detail": "{\"extendedTextMessage\":{\"text\":\"*Lost* 😂\\n\\nThe correct answer is: his *house*.\\n\\nLet's not think so complicated or even analyze too much 🙂\\n\\nWe don't know if he's retired or even voluntarily changed jobs.\\n\\nBut that's a general problem with us intellectual people: we always look for intellectual answers and think so complicated 🤷🏻‍♂\\n\\nNow it's your turn to post the message below 😉An ex policeman lost his house 🏠 his car 🚗 and his wife.\",\"contextInfo\":{\"mentionedJid\":[],\"groupMentions"
+  },
+  {
+    "time": "2025-10-11T23:20:40.784Z",
+    "jid": "18002428478@s.whatsapp.net",
+    "type": "text",
+    "detail": "{\"extendedTextMessage\":{\"text\":\"but this Unicode is what 🙂‍↕️🙂‍↕️\",\"contextInfo\":{\"mentionedJid\":[],\"groupMentions\":[],\"expiration\":0,\"ephemeralSettingTimestamp\":{\"low\":0,\"high\":0,\"unsigned\":false},\"disappearingMode\":{\"initiator\":0}}}}"
+  },
+  {
+    "time": "2025-10-11T23:21:03.763Z",
+    "jid": "18002428478@s.whatsapp.net",
+    "type": "text",
+    "detail": "{\"extendedTextMessage\":{\"text\":\"but this Unicode is what 🙂‍↕🙂‍↕\",\"contextInfo\":{\"mentionedJid\":[],\"groupMentions\":[],\"expiration\":0,\"ephemeralSettingTimestamp\":{\"low\":0,\"high\":0,\"unsigned\":false},\"disappearingMode\":{\"initiator\":0}}}}"
+  },
+  {
+    "time": "2025-10-11T23:27:14.133Z",
+    "jid": "18002428478@s.whatsapp.net",
+    "type": "text",
+    "detail": "{\"extendedTextMessage\":{\"text\":\"but this Unicode is what 🙂‍↕🙂‍↕\",\"contextInfo\":{\"mentionedJid\":[],\"groupMentions\":[],\"expiration\":0,\"ephemeralSettingTimestamp\":{\"low\":0,\"high\":0,\"unsigned\":false},\"disappearingMode\":{\"initiator\":0}}}}"
+  },
+  {
+    "time": "2025-10-12T02:44:39.866Z",
+    "jid": "2348151810309@s.whatsapp.net",
+    "type": "text",
+    "detail": "{\"extendedTextMessage\":{\"text\":\"😮‍💨\",\"contextInfo\":{\"mentionedJid\":[],\"groupMentions\":[],\"expiration\":0,\"ephemeralSettingTimestamp\":{\"low\":1759664749,\"high\":0,\"unsigned\":false},\"disappearingMode\":{\"initiator\":0}}}}"
+  },
+  {
+    "time": "2025-10-12T20:31:41.428Z",
+    "jid": "120363420941246798@g.us",
+    "type": "group_mention",
+    "detail": "User 255348942307493@lid mentioned everyone - MESSAGE DELETED"
+  },
+  {
+    "time": "2025-10-12T20:50:28.148Z",
+    "jid": "27752388743@s.whatsapp.net",
+    "type": "text",
+    "detail": "{\"extendedTextMessage\":{\"text\":\"Just normal jare ski🙂‍↔️\",\"previewType\":0,\"contextInfo\":{\"mentionedJid\":[],\"groupMentions\":[],\"stanzaId\":\"3FF123E65B5207777E98\",\"participant\":\"2347017747337@s.whatsapp.net\",\"quotedMessage\":{\"conversation\":\"how'd your day go\"}},\"inviteLinkGroupTypeV2\":0},\"messageContextInfo\":{\"deviceListMetadata\":{\"senderKeyIndexes\":[],\"recipientKeyIndexes\":[],\"recipientKeyHash\":{\"type\":\"Buffer\",\"data\":[37,138,42,198,162,244,196,18,137,16]},\"recipientTimestamp\":{\"low\":1759743962,\""
+  },
+  {
+    "time": "2025-10-13T08:56:50.447Z",
+    "jid": "120363420941246798@g.us",
+    "type": "group_mention",
+    "detail": "User 108856298442803@lid mentioned everyone - MESSAGE DELETED"
+  },
+  {
+    "time": "2025-10-13T11:08:13.945Z",
+    "jid": "2348151810309@s.whatsapp.net",
+    "type": "text",
+    "detail": "{\"extendedTextMessage\":{\"text\":\"Idk 🤷‍♀️\",\"contextInfo\":{\"mentionedJid\":[],\"groupMentions\":[],\"stanzaId\":\"3FEADFEFFA4A05BCE533\",\"participant\":\"2347017747337@s.whatsapp.net\",\"quotedMessage\":{\"extendedTextMessage\":{\"text\":\"where are we going to🌝\",\"contextInfo\":{\"mentionedJid\":[],\"groupMentions\":[],\"expiration\":0,\"ephemeralSettingTimestamp\":{\"low\":1759664749,\"high\":0,\"unsigned\":false},\"disappearingMode\":{\"initiator\":0,\"trigger\":1,\"initiatedByMe\":true}}}},\"expiration\":0,\"ephemeralSettingTimestamp\""
+  },
+  {
+    "time": "2025-10-13T18:15:41.381Z",
+    "jid": "120363420941246798@g.us",
+    "type": "group_mention",
+    "detail": "User 109118157238392@lid mentioned everyone - MESSAGE DELETED"
+  },
+  {
+    "time": "2025-10-13T18:28:58.083Z",
+    "jid": "120363420941246798@g.us",
+    "type": "group_mention",
+    "detail": "User 126766630854694@lid mentioned everyone - MESSAGE DELETED"
+  },
+  {
+    "time": "2025-10-13T20:25:34.516Z",
+    "jid": "2349064414107@s.whatsapp.net",
+    "type": "text",
+    "detail": "{\"extendedTextMessage\":{\"text\":\"ttylllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllll\",\"contextInfo\":{\"mentionedJid\":[],\"groupMentions\":[],\"expiration\":0,\"ephemeralSettingTimestamp\":{\"low\":0,\"high\":0,\"unsigned\":false},\"disappearingMode\":{\"initiator\":0}}}}"
+  }
+]
