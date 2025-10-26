@@ -1,146 +1,132 @@
-<img src="./uploads/upload/Desire.png">
+I'll help you create a polished README for your WhatsApp Bot project. Here's an improved version:
 
-# Whatsapp Bot
+```markdown
+# 🤖 Desire WhatsApp Bot
 
-## Support
+<img src="./uploads/upload/Desire.png" width="200" alt="Desire Bot Logo">
 
-- Windows
-- Linux
-- Termux
-- VsCode
+A feature-rich WhatsApp bot with AI capabilities, media processing, and group management tools.
 
-## Feature
-- Private and Public Commands `config.json`
+## 🚀 Features
 
-### Main Command
+### 🤖 AI & Intelligence
+- **Gemini AI Integration** - Chat with Google's Gemini AI
+- **Image Analysis** - Analyze images with AI
+- **Wikipedia Integration** - Search and get content from Wikipedia
+- **OCR** - Extract text from images
+- **Translation** - Multi-language translation support
 
-|Windows|Linux| Termux | Command      			|  Description      |
-|-------|-----|--------|-----------------------|-------------------|
-|✅|✅|✅|gemini-ai				|To use Gemini AI, example: `.gemini hello`|
-|✅|✅|✅|gemini-img			|Analyze the quoted image: example quote image `.gemini-img What is this picture?`|
-|✅|✅|✅|gemini-roasting		|To use Gemini Roasting, example: `.gemini how are you`|
-|✅|✅|✅|gemini-roasting-img	|To use Gemini Roasting, example: `.gemini What is this picture?`|
-|✅|✅|✅|sticker       		|Convert images into stickers, example: quote image `.sticker`|
-|✅|✅|✅|to-voice				|Convert text to voice, example: `.to-voice hello words`|
-|✅|✅|✅|wiki-ai				|Get wiki content based on a query, example: `.wiki-ai kucing`|
-|✅|✅|✅|wiki-search			|Get a list of wiki contents based on a query, example: `.wiki-search kucing`|
-|✅|✅|✅|wiki-img				|Get Images from wiki based on query, example: `.wiki-image kucing`|
-|✅|✅|✅|weather				|Get weather data based on city name, example: `.weather jakarta`|
-|✅|✅|✅|translate			|Translate into various languages, example: `.translate-en apa kabar`|
-|✅|✅|✅|surah				|Get the entire surah, example: `.surah 1`|
-|✅|✅|✅|surah-detail			|Get a specific verse from a surah, example: `.surah 1:4`|
-|✅|✅|✅|country				|Get country information, example: `.country indonesia`|
-|✅|✅|✅|seo					|Check SEO status by domain, example: `.seo youtube.com`|
-|✅|✅|✅|seo-roasting			|Roasting SEO status by domain, example: `.seo-roasting youtube.com`|
-|✅|✅|✅|words				|Counting words, example: `.words hello words`|
-|✅|✅|✅|mtk					|Multi math addition, example: `.mtk 1-1+1*1:1`|
-|✅|✅|✅|qrcode				|Generate QRcode Image, example: `.qrcode hello words`|
-|✅|✅|✅|aes-enc   			|Encrypts string to AES, example `.aes-enc hello words`|
-|✅|✅|✅|aes-dec   			|Dencrypts string to AES, example `.aes-dec fb3a838c0081abd85717ffdcc79f8edb`|
-|✅|✅|✅|camellia-enc   		|Encrypts string to Camellia, example `.camellia-enc hello words`|
-|✅|✅|✅|camellia-dec   		|Dencrypts string to Camellia, example `.camellia-dec 5afe9e0176eaf2242c4aad209127796e`|
-|✅|✅|✅|sha   				|Encrypts string to SHA, example `.sha hello words`|
-|✅|✅|✅|md5   				|Encrypts string to MD5, example `.md5 hello words`|
-|✅|✅|✅|ripemd   			|Encrypts string to Ripemd, example `.ripemd hello words`|
-|✅|✅|✅|bcrypt   			|Encrypts string to Bcrypt, example `.bcrypt hello words`|
-|✅|✅|✅|ytdl-mp4   			|Convert YouTube video URL to MP4, example `.ytdl-mp4 url`|
-|✅|✅|✅|ytdl-mp3   			|Convert YouTube video URL to MP3, example `.ytdl-mp3 url`|
-|✅|✅|✅|fbdl-mp4   			|Convert Facebook video URL to MP4, example `.fbdl-mp4 url`|
-|✅|✅|✅|fbdl-mp3   			|Convert Facebook video URL to MP3, example `.fbdl-mp3 url`|
-|✅|✅|✅|twdl-mp4   			|Convert Twitter / X video URL to MP4, example `.twdl-mp4 url`|
-|✅|✅|✅|twdl-mp3   			|Convert Twitter / X video URL to MP3, example `.twdl-mp3 url`|
-|✅|✅|✅|igdl-mp4   			|Convert Instagram video URL to MP4, example `.igdl-mp4 url`|
-|✅|✅|✅|igdl-mp3   			|Convert Instagram video URL to MP3, example `.igdl-mp3 url`|
-|✅|✅|✅|tkdl-mp4   			|Convert Tiktok video URL to MP4, example `.tkdl-mp4 url`|
-|✅|✅|✅|tkdl-mp3   			|Convert Tiktok video URL to MP3, example `.tkdl-mp3 url`|
-|✅|✅|✅|vmdl-mp4   			|Convert Vimeo video URL to MP4, example `.vmdl-mp4 url`|
-|✅|✅|✅|vmdl-mp3   			|Convert Vimeo video URL to MP3, example `.vmdl-mp3 url`|
-|✅|✅|✅|ocr   				|Convert Image to text (OCR), example quote image `.ocr domain`|
-|✅|✅|✅|ssweb   				|Get a screenshot web of the domain, example `.ssweb domain`|
-|✅|✅|✅|ssmobile   			|Get a screenshot mobile of the domain, example `.ssmobile domain`|
-|✅|✅|✅|detik-search			|Get articles from search, example `.detik-search indonesia|
-|✅|✅|✅|detik-viral			|Get the viral articles, example `.detik-viral`|
-|✅|✅|✅|detik-news   		|Get the latest articles, example `.detik-news`|
-|✅|✅|✅|anime   				|Get anime streaming, example `.anime isekai`|
-|✅|✅|✅|github   			|Get github username account information, example `.github fitri-hy`|
-|✅|✅|✅|github-roasting   	|Roasting github username account information, example `.github-roasting fitri-hy`|
-|✅|✅|✅|{file-type}			|Generate QRcode Image, example: `.pdf javascript`|
-|-|-|-|**New Feature**			|Comming Soon ...|
+### 📱 Media Processing
+- **Sticker Creation** - Convert images to stickers
+- **Text-to-Speech** - Convert text to voice messages
+- **Video Downloads** - Download videos from various platforms (YouTube, Facebook, Twitter, Instagram, TikTok, Vimeo)
+- **QR Code Generation** - Create QR codes from text
+- **Screenshot Tools** - Capture website screenshots (desktop/mobile)
 
-**{File-Type} Support**
-```
-.pdf, .doc, .docx, .xls, .xlsx, .ppt, .pptx, .txt, .html, .htm, .csv, .rtf, .odt, .ods, .odp, .epub, .zip, .gz
-```
-### Group Command
+### 🔒 Security & Utilities
+- **Encryption Tools** - AES, Camellia, SHA, MD5, RIPEMD, Bcrypt
+- **SEO Analysis** - Check and analyze website SEO
+- **File Generation** - Create various document types
+- **Math Calculator** - Advanced mathematical operations
 
-|Windows|Linux| Termux | Command      			|  Deskription      |
-|-------|-----|--------|-----------------------|-------------------|
-|✅|✅|✅|add               |Adding a new member in group, example: `.add 234xxxxx`|
-|✅|✅|✅|kick              |Kicking members of the group, example: `.kick @mention`|
-|✅|✅|✅|promote           |Promote members in admin group, example: `.promote @mention`|
-|✅|✅|✅|demote            |Demote admins in group members, example: `.demote @mention`|
-|✅|✅|✅|chat-close        |Only admins can send messages in groups|
-|✅|✅|✅|chat-open         |Everyone can send messages in the group|
-|✅|✅|✅|antilink-on     |Enable deleting messages containing links in group|
-|✅|✅|✅|antilink-off    |Disables deleting messages containing links in groups|
-|✅|✅|✅|badwords-on     |Enable deleting messages containing badwords in group|
-|✅|✅|✅|badwords-off    |Disables deleting messages containing badwords in groups|
-|✅|✅|✅|Private  	|Enable Bot "Main Commands" for all users except yourself|
-|✅|✅|✅|Public		    |Enable Bot "Main Command" for yourself|
+### 👥 Group Management
+- **Member Management** - Add, kick, promote, demote members
+- **Chat Controls** - Open/close group chats
+- **Anti-Link Protection** - Prevent spam links
+- **Bad Words Filter** - Automatic inappropriate content filtering
+- **Public/Private Mode** - Control command accessibility
 
-## Installation
+## 📋 Command List
 
-Please visit the [AI Studio](https://aistudio.google.com) site to get the gemini apikey, Then configure in `config.json`
+### Main Commands
+
+| Command | Platform Support | Description |
+|---------|------------------|-------------|
+| `.gemini-ai` | ✅ Windows ✅ Linux ✅ Termux | Chat with Gemini AI |
+| `.gemini-img` | ✅ Windows ✅ Linux ✅ Termux | Analyze quoted images |
+| `.sticker` | ✅ Windows ✅ Linux ✅ Termux | Convert images to stickers |
+| `.to-voice` | ✅ Windows ✅ Linux ✅ Termux | Convert text to voice |
+| `.translate` | ✅ Windows ✅ Linux ✅ Termux | Translate text between languages |
+| `.weather` | ✅ Windows ✅ Linux ✅ Termux | Get weather information |
+| `.qrcode` | ✅ Windows ✅ Linux ✅ Termux | Generate QR codes |
+| `.ytdl-mp4/mp3` | ✅ Windows ✅ Linux ✅ Termux | Download YouTube videos/audio |
+| `.ocr` | ✅ Windows ✅ Linux ✅ Termux | Extract text from images |
+| `.github` | ✅ Windows ✅ Linux ✅ Termux | Get GitHub user information |
+
+### Group Commands
+
+| Command | Description |
+|---------|-------------|
+| `.add` | Add members to group |
+| `.kick` | Remove members from group |
+| `.promote/demote` | Manage admin permissions |
+| `.chat-open/close` | Control group chat accessibility |
+| `.antilink-on/off` | Enable/disable link protection |
+| `.badwords-on/off` | Enable/disable bad words filter |
+
+## 🛠️ Installation
+
+### Prerequisites
+- Get your Gemini API key from [Google AI Studio](https://aistudio.google.com)
+- Configure your settings in `config.json`
 
 ### Windows
-
-- Install Node.js [Download](https://nodejs.org/id)
-- Clone Repository
-```
+```bash
+# Install Node.js from https://nodejs.org
 git clone https://github.com/Desire-exe/Desire-eXe-
 cd whatsapp-bot
-```
-- Run Bot
-```
 npm start
 ```
 
 ### Linux
-
-- Install Node.js
-```
+```bash
 sudo apt update
 sudo apt install nodejs npm
-```
-- Clone Repository
-```
 git clone https://github.com/Desire-exe/Desire-eXe-
 cd whatsapp-bot
-```
-- Run Bot
-```
 npm start
 ```
 
 ### Termux
-
-- Install Node.js
-```
+```bash
 pkg update
 pkg install nodejs git
-```
-- Clone Repository
-```
-git clone https://github.com/fitri-hy/whatsapp-bot.git
+git clone https://github.com/Desire-exe/Desire-eXe-
 cd whatsapp-bot
-```
-- Run Bot
-```
 npm start
 ```
 
-Don't forget to Fork and give me a star
+### VS Code
+- Open the project in VS Code
+- Install recommended extensions
+- Run `npm start` in terminal
 
+## ⚙️ Configuration
 
+Edit `config.json` to customize:
+- API keys (Gemini AI)
+- Public/Private mode
+- Group settings
+- Feature toggles
 
+## 📁 Supported File Types
+The bot can generate: `.pdf`, `.doc`, `.docx`, `.xls`, `.xlsx`, `.ppt`, `.pptx`, `.txt`, `.html`, `.htm`, `.csv`, `.rtf`, `.odt`, `.ods`, `.odp`, `.epub`, `.zip`, `.gz`
 
+## 🆕 Coming Soon
+- More AI models integration
+- Additional social media platforms
+- Enhanced group features
+- Plugin system
+
+## 🤝 Contributing
+Feel free to fork this project and submit pull requests!
+
+## ⭐ Support
+If you find this project useful, please give it a star on GitHub!
+
+---
+
+**Platform Support**: ✅ Windows ✅ Linux ✅ Termux ✅ VS Code
+
+*Made with ❤️ by Desire*
+```
