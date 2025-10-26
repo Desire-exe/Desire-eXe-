@@ -206,7 +206,7 @@ Platform Support: ✅ Windows ✅ Linux ✅ Termux ✅ VS Code
 
 Obey the code or face deletion.
 
----
 
-*Made with ❤️ by Desire*
+Made with ❤️ by Desire
+
 
