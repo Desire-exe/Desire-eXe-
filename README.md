@@ -200,12 +200,13 @@ git clone https://github.com/Desire-exe/Desire-eXe-
 cd whatsapp-bot
 npm start
 
-**Platform Support**: ✅ Windows ✅ Linux ✅ Termux ✅ VS Code
+Platform Support: ✅ Windows ✅ Linux ✅ Termux ✅ VS Code
 
-📞 **CONTACT**: +2347017747337
+📞 CONTACT: +2347017747337
 
-*Obey the code or face deletion.*
+Obey the code or face deletion.
 
 ---
 
 *Made with ❤️ by Desire*
+
