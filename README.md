@@ -1,4 +1,4 @@
-<img src="./upload/ss.jpg">
+<img src="./upload/Desire.jpg">
 
 # Whatsapp Bot
 
@@ -8,7 +8,6 @@
 - Linux
 - Termux
 - VsCode
-- Whatsapp Bot UI Version [Visit Repository](https://github.com/fitri-hy/whatsapp-bot-ui.git)
 
 ## Feature
 - Private and Public Commands `config.json`
@@ -141,4 +140,5 @@ npm start
 ```
 
 Don't forget to Fork and give me a star
+
 
