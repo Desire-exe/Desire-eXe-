@@ -1,4 +1,4 @@
-<img src="./uploads/upload/Desire.jpg">
+<img src="./uploads/upload/Desire.png">
 
 # Whatsapp Bot
 
@@ -140,6 +140,7 @@ npm start
 ```
 
 Don't forget to Fork and give me a star
+
 
 
 
