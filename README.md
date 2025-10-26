@@ -1,70 +1,176 @@
-I'll help you create a polished README for your WhatsApp Bot project. Here's an improved version:
-
-```markdown
 # 🤖 Desire WhatsApp Bot
 
 <img src="./uploads/upload/Desire.png" width="200" alt="Desire Bot Logo">
 
-A feature-rich WhatsApp bot with AI capabilities, media processing, and group management tools.
+*A powerful, feature-rich WhatsApp bot with AI capabilities, media processing, and complete group domination tools.*
 
-## 🚀 Features
+---
 
-### 🤖 AI & Intelligence
-- **Gemini AI Integration** - Chat with Google's Gemini AI
-- **Image Analysis** - Analyze images with AI
-- **Wikipedia Integration** - Search and get content from Wikipedia
-- **OCR** - Extract text from images
-- **Translation** - Multi-language translation support
+## 👑 **OWNER COMMANDS** | *Absolute Power*
+- `.owner` / `.contact` → Kneel before your creator ☎️
+- `.Desire-off` → System shutdown 😴
+- `.Desire-Arise` → Reborn in code 🔥
+- `.groups` → My empire overview 🌐
+- `.sspam` [nums] [count] [msg] → Spam storm ⚡
+- `.save` [media] → Archived for eternity 🗂
+- `.setpp` [img] → My face, my dominance 👑
+- `.clone-pfp` [user] → Identity theft supreme 👤
+- `.test-key` → API key verification 🔑
+- `.list-models` → Available AI models 🤖
+- `.setprefix` [new] → Change your call sign 🔣
 
-### 📱 Media Processing
-- **Sticker Creation** - Convert images to stickers
-- **Text-to-Speech** - Convert text to voice messages
-- **Video Downloads** - Download videos from various platforms (YouTube, Facebook, Twitter, Instagram, TikTok, Vimeo)
-- **QR Code Generation** - Create QR codes from text
-- **Screenshot Tools** - Capture website screenshots (desktop/mobile)
+## 💬 **GROUP DOMINATION** | *My Chat, My Rules*
+- `.promote` / `.demote` [user] → Power shifts 👑
+- `.eXe` [user] → Digital execution 💀
+- `.warn` / `.unwarn` [user] → Warning system ⚠️
+- `.warnings` [user] → Check sin count 📋
+- `.clearwarns` [user] → Clean slate 🧹
+- `.nuke` [-y] → Remove all non-admins 💣
+- `.mute` / `.unmute` → Chat control 🔇
+- `.tagall` / `.Tag` → Everyone hears me 📢
+- `.tag` → Invisible mass mention 👻
+- `.gc-name` / `.gc-desc` [text] → Group identity 🏷️
+- `.set-gcpp` [img] → Group profile picture 💬
+- `.removepp` → Remove group picture 👻
+- `.reset-link` → New invite code 🔄
+- `.ginfo` → Group intelligence 📊
+- `.admins` → List of rulers 👑
+- `.inv` [numbers] → Mass invitation 📨
+- `.welcome-on/off` / `.set` → Greeting system 👋
+- `.goodbye` [on/off] → Farewell messages 👋
+- `.promote-on/off` / `.set-promote` → Promotion alerts 📈
+- `.demote-on/off` / `.set-demote` → Demotion alerts 📉
+- `.Desire-eXit` → Leave group chat 🚪
+- `.block2` / `.unblock2` → Group member control 💀
 
-### 🔒 Security & Utilities
-- **Encryption Tools** - AES, Camellia, SHA, MD5, RIPEMD, Bcrypt
-- **SEO Analysis** - Check and analyze website SEO
-- **File Generation** - Create various document types
-- **Math Calculator** - Advanced mathematical operations
+## 🛡️ **SECURITY SUITE** | *Even Chaos Needs Rules*
+- `.antilink-on/off` → No free promo 🔗
+- `.antibadwords-on/off` → Watch your mouth ⚠️
+- `.autoblock-on/off` → Touch me, you're gone 🚫
+- `.antimention` [on/off] → Stop mass mentions 🚫
+- `.public` / `.private` → I choose my audience 👁
+- `.dis-on/off` → Ephemeral messages destroyed 🕯
+- `.block` / `.unblock` → I decide who exists 👊
+- `.del` [message] → Delete messages 🗑️
 
-### 👥 Group Management
-- **Member Management** - Add, kick, promote, demote members
-- **Chat Controls** - Open/close group chats
-- **Anti-Link Protection** - Prevent spam links
-- **Bad Words Filter** - Automatic inappropriate content filtering
-- **Public/Private Mode** - Control command accessibility
+## 🧠 **AI MIND GAMES** | *Where Logic Dies*
+- `.gemini` [query] → Smarter than your ex 🧩
+- `.gemini-roasting` [query] → I roast with love 🔥
+- `.gemini-img` [reply image] → I see your soul 👁
+- `.gemini-roasting-img` [reply image] → Even your pics aren't safe 📸
+- `.wiki-ai` [query] → Knowledge is my weapon 📚
+- `.wiki-search` [query] → You ask. I deliver.
+- `.wiki-img` [query] → Visual intelligence, baby
+- `.Desire-on/off` → Let's talk, human 💬
 
-## 📋 Command List
+## 📥 **DOWNLOAD GOD** | *If It Exists Online*
+- `.play` [song] → Summon melodies 🎧
+- `.video` [video] → Lights, camera, domination 🎬
+- `.yt-mp4/mp3` [url] → YouTube obeys me 🎥
+- `.fbdl-mp4/mp3` [url] → Facebook falls before me 📘
+- `.twdl-mp4/mp3` [url] → Twitter trembles 🐦
+- `.tw-mp4` [url] → Twitter video download 🎬
+- `.igdl-mp4/mp3` [url] → I own Instagram 📸
+- `.tkdl-mp4/mp3` [url] → TikTok's mine now 🎭
+- `.vmdl-mp4/mp3` [url] → Victory is digital ⚡
+- `.tomp3` [reply video] → Turn vision to sound 🎵
 
-### Main Commands
+## 🎵 **MEDIA MASTER** | *Content Manipulation*
+- `.tts` [text] → I whisper in your mind 🔊
+- `.tts2` [text] [num] → Voice notes of sin 😈
+- `.sticker` [image] → Convert to sticker 🎨
+- `.to-img` [sticker] → Sticker to image 🖼️
+- `.send-img` → Witness my creation 📸
+- `.smile` → Watch your soul lighten 😊
 
-| Command | Platform Support | Description |
-|---------|------------------|-------------|
-| `.gemini-ai` | ✅ Windows ✅ Linux ✅ Termux | Chat with Gemini AI |
-| `.gemini-img` | ✅ Windows ✅ Linux ✅ Termux | Analyze quoted images |
-| `.sticker` | ✅ Windows ✅ Linux ✅ Termux | Convert images to stickers |
-| `.to-voice` | ✅ Windows ✅ Linux ✅ Termux | Convert text to voice |
-| `.translate` | ✅ Windows ✅ Linux ✅ Termux | Translate text between languages |
-| `.weather` | ✅ Windows ✅ Linux ✅ Termux | Get weather information |
-| `.qrcode` | ✅ Windows ✅ Linux ✅ Termux | Generate QR codes |
-| `.ytdl-mp4/mp3` | ✅ Windows ✅ Linux ✅ Termux | Download YouTube videos/audio |
-| `.ocr` | ✅ Windows ✅ Linux ✅ Termux | Extract text from images |
-| `.github` | ✅ Windows ✅ Linux ✅ Termux | Get GitHub user information |
+## 🔮 **DARK ARTS** | *I Bend Data & Destiny*
+- `.weather` [city] → Forecast your doom 🌩
+- `.weather-detail` [city] → Detailed analysis 📊
+- `.forecast` [city] → 3-day prediction 📅
+- `.weather-compare` [cities] → Compare climates ⚖️
+- `.weather-art` [city] → ASCII art weather 🎨
+- `.tr` [lang] [text] → Universal translator 🌐
+- `.qtr` [text] → Quick translation ⚡
+- `.mtr` [langs] [text] → Multi-target translation 🔄
+- `.detectlang` [text] → Language detection 🔍
+- `.country` [name] → Geo-stalk mode: ON 🌍
+- `.seo` [domain] → Digital aura reading 💻
+- `.seo-roast` [domain] → Website roasting 🔥
+- `.seo-compare` [domains] → SEO comparison 📊
+- `.words` [text] → I count your sins 🩸
+- `.math` [exp] → I own numbers 💀
+- `.qrcode` [text] → Encode your fate 📲
+- `.ocr` [image] → I read the unseen 👁
+- `.ssweb` [url] → Desktop captured 🖥
+- `.ssmobile` [url] → Mobile proof acquired 📱
+- `.github` [user] → I see your repos 👨‍💻
+- `.github-roasting` [user] → Weak code detected 💢
+- `.anime` [name] → I summon your waifu ❤️‍🔥
 
-### Group Commands
+## 📖 **DIVINE KNOWLEDGE** | *Sacred Texts*
+- `.surah` [num] → Quranic verses 🕋
+- `.verse` [surah] [ayah] → Specific words 🎯
+- `.surahlist` [page] → List all surahs 📖
+- `.bible` [book] [chapter] → Biblical knowledge ✝️
+- `.bibleverse` [book] [chapter] [verse] → Specific verse 🎯
+- `.biblesearch` [query] → Search scriptures 🔍
+- `.biblebooks` → List all books 📚
+- `.popularverses` → Famous scriptures 🌟
+- `.randomverse` → Random wisdom 🎲
 
-| Command | Description |
-|---------|-------------|
-| `.add` | Add members to group |
-| `.kick` | Remove members from group |
-| `.promote/demote` | Manage admin permissions |
-| `.chat-open/close` | Control group chat accessibility |
-| `.antilink-on/off` | Enable/disable link protection |
-| `.badwords-on/off` | Enable/disable bad words filter |
+## 🔐 **DEATH NOTE** | *Encryption? I Laugh*
+- `.aes-enc/dec` [text] → Dark lock 🔒
+- `.camellia-enc/dec` [text] → Triple-sealed 🔐
+- `.sha` [text] → Irreversible damnation 💀
+- `.md5` [text] → Old school chaos ⚙️
+- `.ripemd` [text] → Cryptographic necromancy 📜
+- `.bcrypt` [text] → Salted. Buried. Gone. ⚰️
 
-## 🛠️ Installation
+## 📁 **DOCUMENT DEALER** | *Paperwork of Damned*
+- `.pdf` / `.doc` / `.docx` [query] → I forge files 🧾
+- `.xls` / `.xlsx` [query] → Data control 📊
+- `.ppt` / `.pptx` [query] → Present surrender 🎤
+- `.txt` / `.html` [query] → Simple yet sinister 📄
+- `.zip` [query] → Compressed chaos 💣
+- `.filesearch` / `.fsearch` [type] [query] → Advanced search 🔍
+- `.quickfiles` / `.qfiles` [query] → Multi-format search ⚡
+
+## 😈 **DARK FUN** | *Entertainment With Consequences*
+- `.kill` [user] → Digital execution ☠️
+- `.detect-h` → Find the thirsty 💧
+- `.truth` / `.dare` → Confess or suffer 😏
+- `.pickup` → Charm from hell ❤️
+- `.savage` → Roasts hotter than Satan 🔥
+- `.fact` → Truths that hurt 🧠
+- `.detect` [user] → I know you 🔎
+- `.t-or-d` → Hide secrets? Impossible 😈
+- `.poll` / `.mpoll` → I control democracy 🗳️
+- `.vv` [view-once] → Nothing escapes me 👁‍🗨
+
+## ⚡ **DIGITAL GOD** | *Network Dominance*
+- `.ping` / `.ping2` [target] → Lightning strike ⚡
+- `.ipinfo` [ip] → You can't hide 🌍
+- `.whois` / `.whois2` [target] → Exposed 🔎
+- `.dnslookup` [domain] → DNS secrets 🌐
+- `.subenum` [domain] → Subdomain control 💻
+
+## 🗞️ **INFORMATION DEALER** | *I Know All*
+- `.detik-search` [query] → News search 🔍
+- `.detik-article` → Latest articles 📰
+- `.detik-viral` → Trending news 🔥
+- `.detik-latest` → Fresh updates 📰
+
+## 🎛️ **CONTROL CENTER** | *System Mastery*
+- `.menu` → Perfection displayed 🧾
+- `.alive` → I never die 💀
+- `.Des-info` → System diagnostics 💻
+- `.autotype-on/off` → Typing ritual ⌨️
+- `.autorecord-on/off` → Constant presence 🎙️
+- `.presence-status` → Activity sensing 👁‍🗨
+
+---
+
+## 🛠️ **Installation**
 
 ### Prerequisites
 - Get your Gemini API key from [Google AI Studio](https://aistudio.google.com)
@@ -72,7 +178,6 @@ A feature-rich WhatsApp bot with AI capabilities, media processing, and group ma
 
 ### Windows
 ```bash
-# Install Node.js from https://nodejs.org
 git clone https://github.com/Desire-exe/Desire-eXe-
 cd whatsapp-bot
 npm start
@@ -94,39 +199,13 @@ pkg install nodejs git
 git clone https://github.com/Desire-exe/Desire-eXe-
 cd whatsapp-bot
 npm start
-```
-
-### VS Code
-- Open the project in VS Code
-- Install recommended extensions
-- Run `npm start` in terminal
-
-## ⚙️ Configuration
-
-Edit `config.json` to customize:
-- API keys (Gemini AI)
-- Public/Private mode
-- Group settings
-- Feature toggles
-
-## 📁 Supported File Types
-The bot can generate: `.pdf`, `.doc`, `.docx`, `.xls`, `.xlsx`, `.ppt`, `.pptx`, `.txt`, `.html`, `.htm`, `.csv`, `.rtf`, `.odt`, `.ods`, `.odp`, `.epub`, `.zip`, `.gz`
-
-## 🆕 Coming Soon
-- More AI models integration
-- Additional social media platforms
-- Enhanced group features
-- Plugin system
-
-## 🤝 Contributing
-Feel free to fork this project and submit pull requests!
-
-## ⭐ Support
-If you find this project useful, please give it a star on GitHub!
-
----
 
 **Platform Support**: ✅ Windows ✅ Linux ✅ Termux ✅ VS Code
 
+📞 **CONTACT**: +2347017747337
+
+*Obey the code or face deletion.*
+
+---
+
 *Made with ❤️ by Desire*
-```
