@@ -5416,9 +5416,6 @@ if (command === 'gemini-roasting-img') {
 // ==============================================
 
        
-// 🔹GROUP COMMANDS
-// ==============================================
-
 // Group Kicked User
 if (command === 'eXe') {
     await sock.sendMessage(chatId, { react: { text: "👨‍💻", key: msg.key } });
@@ -5445,9 +5442,7 @@ if (command === 'eXe') {
             await sock.sendMessage(chatId, { react: { text: "❌", key: msg.key } });
         }
     } else {
-        await sock.sendMessage(chatId, { 
-            text: `❌ Reply to a user or mention someone with \\${currentPrefix}eXe to kick them.\n\n*Usage:* Reply to user or @mention` 
-        }, { quoted: msg });
+        await sock.sendMessage(chatId, { text: "Please mention a user (@) or reply to a user's message to Kick." }, { quoted: msg });
         await sock.sendMessage(chatId, { react: { text: "❌", key: msg.key } });
     }
 }
@@ -5478,7 +5473,7 @@ if (command === 'set-gcpp') {
     const quotedMsg = msg.message?.extendedTextMessage?.contextInfo?.quotedMessage;
     if (!quotedMsg?.imageMessage) {
         await sock.sendMessage(chatId, { 
-            text: `❌ Reply to an image with \\${currentPrefix}set-gcpp to change the group profile picture.` 
+            text: "⚠️ Reply to an image with " + currentPrefix + "setpfp to change the group profile picture."
         }, { quoted: msg });
         return;
     }
@@ -5641,9 +5636,7 @@ if (command === 'kill') {
 if (command === 'admins') {
   try {
     if (!msg.key.remoteJid.endsWith('@g.us')) {
-      await sock.sendMessage(chatId, { 
-          text: `❌ This command only works in groups.\n\n*Usage:* \\${currentPrefix}admins` 
-      });
+      await sock.sendMessage(chatId, { text: '❌ This command only works in groups.' });
       return;
     }
 
@@ -5675,8 +5668,10 @@ if (command === 'admins') {
   }
 }
 
+
 // Tagging All Members
 if (command === 'tagall') {
+    
     try {
         const metadata = await sock.groupMetadata(chatId);
         const participants = metadata.participants;
@@ -5709,9 +5704,7 @@ if (command === 'tagall') {
     try {
         // Make sure it's a group
         if (!msg.key.remoteJid.endsWith('@g.us')) {
-            await sock.sendMessage(chatId, { 
-                text: `❌ This command only works in groups.\n\n*Usage:* \\${currentPrefix}Tagall [message]` 
-            }, { quoted: msg });
+            await sock.sendMessage(chatId, { text: "❌ This command only works in groups." }, { quoted: msg });
             return;
         }
 
@@ -5737,13 +5730,11 @@ if (command === 'tagall') {
 
     } catch (e) {
         console.error(e);
-        await sock.sendMessage(chatId, { 
-            text: `❌ Failed to tag all members.\n\n*Usage:* \\${currentPrefix}Tagall [message]` 
-        }, { quoted: msg });
+        await sock.sendMessage(chatId, { text: "❌ Failed to tag all members." }, { quoted: msg });
     }
 }
 
-// Warn A Member
+// Warn A Memmber
 if (command === 'warn') {
     try {
         const chatId = msg.key.remoteJid;
@@ -5751,7 +5742,7 @@ if (command === 'warn') {
         
         if (!isGroup) {
             await sock.sendMessage(chatId, { 
-                text: `❌ This command only works in groups.\n\n*Usage:* Reply to user with \\${currentPrefix}warn [reason]` 
+                text: '❌ This command only works in groups.' 
             });
             return;
         }
@@ -5787,7 +5778,7 @@ if (command === 'warn') {
 
         if (!targetUser) {
             await sock.sendMessage(chatId, { 
-                text: `❌ Reply to a user or mention someone with \\${currentPrefix}warn to warn them.\n\n*Usage:* Reply to user or @mention [reason]` 
+                text: "❌ Please reply to a user or mention someone to warn.\n\nUsage:" + currentPrefix + "warn @user [reason]"
             }, { quoted: msg });
             return;
         }
@@ -5856,14 +5847,17 @@ if (command === 'warn') {
         warningMessage += `📝 Reason: ${reason || 'No reason provided'}\n`;
         warningMessage += `🛡️ Warned by: @${warnerName}\n\n`;
 
-        if (warnCount >= 3) {
-            warningMessage += `🚨 *FINAL WARNING!* User has been removed for exceeding 3 warnings!`;
-            await sock.groupParticipantsUpdate(chatId, [targetUser], 'remove');
-        } else if (warnCount === 2) {
-            warningMessage += `⚠ *Second warning!* One more and actions will be taken!`;
-        } else {
-            warningMessage += `ℹ Be careful! Further violations will lead to more warnings.`;
-        }
+if (warnCount >= 3) {
+    warningMessage += `🚨 *FINAL WARNING!* User has been removed for exceeding 3 warnings!`;
+
+    // Auto-kick after 3 warnings
+    await sock.groupParticipantsUpdate(chatId, [targetUser], 'remove');
+} else if (warnCount === 2) {
+    warningMessage += `⚠ *Second warning!* One more and actions will be taken!`;
+} else {
+    warningMessage += `ℹ Be careful! Further violations will lead to more warnings.`;
+}
+
 
         // Send warning message
         await sock.sendMessage(chatId, {
@@ -5887,7 +5881,7 @@ if (command === 'warnings') {
         
         if (!isGroup) {
             await sock.sendMessage(chatId, { 
-                text: `❌ This command only works in groups.\n\n*Usage:* \\${currentPrefix}warnings [@user]` 
+                text: '⚠️ This command only works in groups.' 
             });
             return;
         }
@@ -5964,6 +5958,7 @@ if (command === 'warnings') {
     }
 }
 
+
 // Clear All Warnings For A Member
 if (command === 'clearwarns') {
     try {
@@ -6001,7 +5996,7 @@ if (command === 'clearwarns') {
 
         if (!targetUser) {
             await sock.sendMessage(chatId, { 
-                text: `❌ Reply to a user or mention someone with \\${currentPrefix}clearwarns to clear their warnings.` 
+                text: '❌ Please reply to or mention a user to clear their warnings.' 
             }, { quoted: msg });
             return;
         }
@@ -6040,16 +6035,13 @@ if (command === 'clearwarns') {
         });
     }
 }
-
 // Remove one Warning For A Member
 if (command === 'unwarn') { 
     const chatId = msg.key.remoteJid;
     const isGroup = chatId.endsWith('@g.us');
     
     if (!isGroup) {
-        await sock.sendMessage(chatId, { 
-            text: `❌ This command only works in groups.\n\n*Usage:* Reply to user with \\${currentPrefix}unwarn` 
-        });
+        await sock.sendMessage(chatId, { text: '⚠️ This command only works in groups.' });
         return;
     }
 
@@ -6074,7 +6066,7 @@ if (command === 'unwarn') {
 
     if (!targetUser) {
         await sock.sendMessage(chatId, { 
-            text: `❌ Reply to a user or mention someone with \\${currentPrefix}unwarn to remove one warning.` 
+            text: '⚠️ Please reply to a user or mention someone to unwarn.\nUsage: ~unwarn @user' 
         }, { quoted: msg });
         return;
     }
@@ -6145,9 +6137,7 @@ if (command === 'nuke') {
     const isGroup = chatId.endsWith('@g.us');
     
     if (!isGroup) {
-        await sock.sendMessage(chatId, { 
-            text: `❌ This command only works in groups.\n\n*Usage:* \\${currentPrefix}nuke -y` 
-        });
+        await sock.sendMessage(chatId, { text: '❌ This command only works in groups.' });
         return;
     }
 
@@ -6181,7 +6171,7 @@ if (command === 'nuke') {
             text: `💣 *NUKE COMMAND CONFIRMATION*\n\n` +
                   `⚠️ This will remove ALL ${nonAdmins.length} non-admin members!\n\n` +
                   `🔴 *This action cannot be undone!*\n\n` +
-                  `To proceed, use: \\${currentPrefix}nuke -y\n` +
+                  `To proceed, use: \\nuke -y\n` +
                   `To cancel, ignore this message.`
         }, { quoted: msg });
         return;
@@ -6242,9 +6232,7 @@ if (command === 'nuke') {
 // Reset Group chat's Link
 if (command === 'revoke-link') {
     const code = await sock.groupRevokeInvite(msg.key.remoteJid);
-    await sock.sendMessage(msg.key.remoteJid, { 
-        text: `✅ Group invite link has been revoked.\nNew link: https://chat.whatsapp.com/${code}\n\n*Usage:* \\${currentPrefix}revoke-link` 
-    });
+    await sock.sendMessage(msg.key.remoteJid, { text: `✅ Group invite link has been revoked.\nNew link: https://chat.whatsapp.com/${code}` });
 }
 
 // Group Chat Information
@@ -6305,12 +6293,9 @@ if (command === 'ginfo') {
 
     } catch (e) {
         console.error("Error fetching group info:", e);
-        await sock.sendMessage(chatId, { 
-            text: `❌ Failed to fetch group information.\n\n*Usage:* \\${currentPrefix}ginfo` 
-        }, { quoted: msg });
+        await sock.sendMessage(chatId, { text: "❌ Failed to fetch group information." }, { quoted: msg });
     }
 }
-
 // Tag
 if (command === 'Tag') {
     const text = args.join(" ") || "👋 Hello everyone!";
@@ -6329,9 +6314,7 @@ if (command === 'Tag') {
         });
     } catch (error) {
         console.error("Error in ~tag command:", error);
-        await sock.sendMessage(chatId, { 
-            text: `❌ Failed to tag members.\n\n*Usage:* \\${currentPrefix}Tag [message]` 
-        });
+        await sock.sendMessage(chatId, { text: "❌ Failed to tag members." });
     }
 }
 
@@ -6348,9 +6331,7 @@ if (command === 'tag') {
         });
     } catch (error) {
         console.error("Error in ~hidetag command:", error);
-        await sock.sendMessage(chatId, { 
-            text: `❌ Failed to hide tag.\n\n*Usage:* \\${currentPrefix}tag [message]` 
-        });
+        await sock.sendMessage(chatId, { text: "❌ Failed to hide tag." });
     }
 }
 
@@ -6358,9 +6339,7 @@ if (command === 'tag') {
 if (command === 'block2') {
     try {
         if (!msg.key.remoteJid.endsWith("@g.us")) {
-            await sock.sendMessage(chatId, { 
-                text: `❌ This command only works in groups.\n\n*Usage:* Reply to user with \\${currentPrefix}block2` 
-            });
+            await sock.sendMessage(chatId, { text: "❌ This command only works in groups." });
             return;
         }
 
@@ -6368,9 +6347,7 @@ if (command === 'block2') {
         const quotedUser = contextInfo?.participant;
 
         if (!quotedUser) {
-            await sock.sendMessage(chatId, { 
-                text: `❌ Reply to a user's message with \\${currentPrefix}block2 to block them.` 
-            });
+            await sock.sendMessage(chatId, { text: "❌ Reply to a user’s message with ~block2 to block them." });
             return;
         }
 
@@ -6381,19 +6358,16 @@ if (command === 'block2') {
         });
     } catch (error) {
         console.error("Error in block2 command:", error);
-        await sock.sendMessage(chatId, { 
-            text: `❌ Failed to block user.\n\n*Usage:* Reply to user with \\${currentPrefix}block2` 
-        });
+        await sock.sendMessage(chatId, { text: "❌ Failed to block user." });
     }
 }
+
 
 // Unblock from Group chats 
 if (command === 'unblock') {
     try {
         if (!msg.key.remoteJid.endsWith("@g.us")) {
-            await sock.sendMessage(chatId, { 
-                text: `❌ This command only works in groups.\n\n*Usage:* Reply to user with \\${currentPrefix}unblock` 
-            });
+            await sock.sendMessage(chatId, { text: "❌ This command only works in groups." });
             return;
         }
 
@@ -6401,9 +6375,7 @@ if (command === 'unblock') {
         const quotedUser = contextInfo?.participant;
 
         if (!quotedUser) {
-            await sock.sendMessage(chatId, { 
-                text: `❌ Reply to a user's message with \\${currentPrefix}unblock to unblock them.` 
-            });
+            await sock.sendMessage(chatId, { text: "❌ Reply to a user’s message with ~unblock2 to unblock them." });
             return;
         }
 
@@ -6414,9 +6386,7 @@ if (command === 'unblock') {
         });
     } catch (error) {
         console.error("Error in unblock2 command:", error);
-        await sock.sendMessage(chatId, { 
-            text: `❌ Failed to unblock user.\n\n*Usage:* Reply to user with \\${currentPrefix}unblock` 
-        });
+        await sock.sendMessage(chatId, { text: "❌ Failed to unblock user." });
     }
 }
 
@@ -6457,7 +6427,7 @@ if (command === 'detect-h') {
     } catch (err) {
         console.error("Error in ~detecthorny:", err);
         await sock.sendMessage(chatId, {
-            text: "❌ Failed to scan horny levels. Try again later.",
+            text: "Failed to scan horny levels. Try again later.",
         });
         await sock.sendMessage(chatId, { react: { text: "❌", key: msg.key } });
     }
@@ -6478,7 +6448,7 @@ if (command === 'detect') {
 
   if (!targetUser) {
     await sock.sendMessage(chatId, { 
-      text: `❌ Reply to a user or mention someone with \\${currentPrefix}detect to investigate them.\n\n*Usage:* Reply to user or @mention` 
+      text: "🕵️‍♂️ *Detective Mode*\n\nI need a target to investigate!\n\nReply to user or:" + currentPrefix + "whois-gc @suspect" 
     }, { quoted: msg });
     return;
   }
@@ -6550,9 +6520,7 @@ if (command === "promote") {
     const isGroup = chatId.endsWith("@g.us");
 
     if (!isGroup) {
-        await sock.sendMessage(chatId, { 
-            text: `❌ This command only works in groups.\n\n*Usage:* \\${currentPrefix}promote [@user]` 
-        });
+        await sock.sendMessage(chatId, { text: "🎭 *Oops!* This command only works in groups, darling! 💫" });
         return;
     }
 
@@ -6594,15 +6562,11 @@ if (command === "promote") {
             await sock.sendMessage(chatId, { react: { text: "🎉", key: msg.key } });
         } catch (error) {
             console.error("Error promoting user:", error);
-            await sock.sendMessage(chatId, { 
-                text: "❌ *Failed to promote user(s).* Maybe I don't have admin rights? 👀" 
-            }, { quoted: msg });
+            await sock.sendMessage(chatId, { text: "❌ *Failed to promote user(s).* Maybe I don't have admin rights? 👀" }, { quoted: msg });
             await sock.sendMessage(chatId, { react: { text: "😔", key: msg.key } });
         }
     } else {
-        await sock.sendMessage(chatId, { 
-            text: `❌ Reply to a user or mention someone with \\${currentPrefix}promote to promote them.\n\n*Usage:* Reply to user or @mention` 
-        }, { quoted: msg });
+        await sock.sendMessage(chatId, { text: "🤔 *How to use:* Mention or reply to user\n💡 *Example:* .promote @user" }, { quoted: msg });
         await sock.sendMessage(chatId, { react: { text: "⚠️", key: msg.key } });
     }
 }
@@ -6613,9 +6577,7 @@ if (command === "demote") {
     const isGroup = chatId.endsWith("@g.us");
 
     if (!isGroup) {
-        await sock.sendMessage(chatId, { 
-            text: `❌ This command only works in groups.\n\n*Usage:* \\${currentPrefix}demote [@user]` 
-        });
+        await sock.sendMessage(chatId, { text: "🎭 *Oops!* This command only works in groups, darling! 💫" });
         return;
     }
 
@@ -6657,15 +6619,11 @@ if (command === "demote") {
             await sock.sendMessage(chatId, { react: { text: "✅", key: msg.key } });
         } catch (error) {
             console.error("Error demoting user:", error);
-            await sock.sendMessage(chatId, { 
-                text: "❌ *Failed to demote user(s).* Maybe I don't have admin rights? 👀" 
-            }, { quoted: msg });
+            await sock.sendMessage(chatId, { text: "❌ *Failed to demote user(s).* Maybe I don't have admin rights? 👀" }, { quoted: msg });
             await sock.sendMessage(chatId, { react: { text: "😔", key: msg.key } });
         }
     } else {
-        await sock.sendMessage(chatId, { 
-            text: `❌ Reply to a user or mention someone with \\${currentPrefix}demote to demote them.\n\n*Usage:* Reply to user or @mention` 
-        }, { quoted: msg });
+        await sock.sendMessage(chatId, { text: "🤔 *How to use:* Mention or reply to user\n💡 *Example:* .demote @user" }, { quoted: msg });
         await sock.sendMessage(chatId, { react: { text: "⚠️", key: msg.key } });
     }
 }
@@ -6677,16 +6635,14 @@ if (command === "gc-name") {
     if (newName) {
         try {
             await sock.groupUpdateSubject(chatId, newName);
-            await sock.sendMessage(chatId, { text: "✅ Group name changed!" }, { quoted: msg });
+            await sock.sendMessage(chatId, { text: "Group name changed!" }, { quoted: msg });
             await sock.sendMessage(chatId, { react: { text: "✅", key: msg.key } });
         } catch (error) {
             console.error("Error changing group name:", error);
             await sock.sendMessage(chatId, { react: { text: "❌", key: msg.key } });
         }
     } else {
-        await sock.sendMessage(chatId, { 
-            text: `❌ Please provide a new group name.\n\n*Usage:* \\${currentPrefix}gc-name [new name]` 
-        }, { quoted: msg });
+        await sock.sendMessage(chatId, { text: "Please enter a new group name." }, { quoted: msg });
         await sock.sendMessage(chatId, { react: { text: "❌", key: msg.key } });
     }
 }
@@ -6698,57 +6654,52 @@ if (command === "gc-desc") {
     if (newDesc) {
         try {
             await sock.groupUpdateDescription(chatId, newDesc);
-            await sock.sendMessage(chatId, { text: "✅ Group description changed!" }, { quoted: msg });
+            await sock.sendMessage(chatId, { text: "Group description changed!" }, { quoted: msg });
             await sock.sendMessage(chatId, { react: { text: "✅", key: msg.key } });
         } catch (error) {
             console.error("Error changing group description:", error);
             await sock.sendMessage(chatId, { react: { text: "❌", key: msg.key } });
         }
     } else {
-        await sock.sendMessage(chatId, { 
-            text: `❌ Please provide a new group description.\n\n*Usage:* \\${currentPrefix}gc-desc [new description]` 
-        }, { quoted: msg });
+        await sock.sendMessage(chatId, { text: "Please enter a new group description." }, { quoted: msg });
         await sock.sendMessage(chatId, { react: { text: "❌", key: msg.key } });
     }
 }
 
-// Lock Group Chat
-if (command === 'mute') {
-    await sock.sendMessage(chatId, { react: { text: "⌛", key: msg.key } });
-    try {
-        await sock.groupSettingUpdate(chatId, "announcement");
-        await sock.sendMessage(chatId, { 
-            text: "✅ Chat locked! Only admins can send messages.\n\n*Usage:* \\${currentPrefix}mute" 
-        }, { quoted: msg });
-        await sock.sendMessage(chatId, { react: { text: "✅", key: msg.key } });
-    } catch (error) {
-        console.error('Error closing chat:', error);
-        await sock.sendMessage(chatId, { react: { text: "❌", key: msg.key } });
-    }
-}
 
-// Unlock Chat Group
-if (command === 'unmute') {
-    await sock.sendMessage(chatId, { react: { text: "⌛", key: msg.key } });
-    try {
-        await sock.groupSettingUpdate(chatId, "not_announcement");
-        await sock.sendMessage(chatId, { 
-            text: "✅ Chat unlocked! Everyone can send messages.\n\n*Usage:* \\${currentPrefix}unmute" 
-        }, { quoted: msg });
-        await sock.sendMessage(chatId, { react: { text: "✅", key: msg.key } });
-    } catch (error) {
-        console.error('Error opening chat:', error);
-        await sock.sendMessage(chatId, { react: { text: "❌", key: msg.key } });
-    }
-}
+        // Lock Group Chat
+        if (command === 'mute') {
+            await sock.sendMessage(chatId, { react: { text: "⌛", key: msg.key } });
+            try {
+                await sock.groupSettingUpdate(chatId, "announcement");
+                await sock.sendMessage(chatId, { text: "Chat locked! Only admins can send messages." }, { quoted: msg });
+                await sock.sendMessage(chatId, { react: { text: "✅", key: msg.key } });
+            } catch (error) {
+                console.error('Error closing chat:', error);
+                await sock.sendMessage(chatId, { react: { text: "❌", key: msg.key } });
+            }
+        }
 
-// Group chat invite (Can Also Send To Multiple Users) 
+        // Unlock Chat Group
+        if (command === 'unmute') {
+            await sock.sendMessage(chatId, { react: { text: "⌛", key: msg.key } });
+            try {
+                await sock.groupSettingUpdate(chatId, "not_announcement");
+                await sock.sendMessage(chatId, { text: "Chat unlocked! Everyone can send messages." }, { quoted: msg });
+                await sock.sendMessage(chatId, { react: { text: "✅", key: msg.key } });
+            } catch (error) {
+                console.error('Error opening chat:', error);
+                await sock.sendMessage(chatId, { react: { text: "❌", key: msg.key } });
+            }
+        }
+
+// Group chat invite ( Can Also Send To Multiple Users) 
 if (command === 'inv') {
     const chatId = msg.key.remoteJid;
 
     if (args.length === 0) {
         await sock.sendMessage(chatId, { 
-            text: `❌ Please provide phone numbers to invite.\n\n*Usage:* \\${currentPrefix}inv +2347017747337 +234812345678\n*Add multiple numbers separated by spaces*` 
+            text: "📌 Usage: " + currentPrefix + "inv +2347017747337 +234812345678\n📌 Add multiple numbers separated by spaces"
         }, { quoted: msg });
         return;
     }
@@ -6839,9 +6790,7 @@ if (command === 'welcome-on') {
   const welcomeData = JSON.parse(fs.readFileSync(welcomeFile));
 
   if (!isGroup) {
-    await sock.sendMessage(chatId, { 
-        text: `❌ This command only works in groups.\n\n*Usage:* \\${currentPrefix}welcome-on` 
-    });
+    await sock.sendMessage(chatId, { text: "⚠️ This command only works in groups." });
     return;
   }
 
@@ -6851,9 +6800,7 @@ if (command === 'welcome-on') {
 
   welcomeData[chatId].enabled = true;
   fs.writeFileSync(welcomeFile, JSON.stringify(welcomeData, null, 2));
-  await sock.sendMessage(chatId, { 
-      text: "✅ Welcome message enabled!\n\n*Usage:* \\${currentPrefix}welcome-on" 
-  });
+  await sock.sendMessage(chatId, { text: "✅ Welcome message enabled!" });
 }
 
 if (command === 'welcome-off') {
@@ -6862,26 +6809,21 @@ if (command === 'welcome-off') {
   const welcomeData = JSON.parse(fs.readFileSync(welcomeFile));
 
   if (!isGroup) {
-    await sock.sendMessage(chatId, { 
-        text: `❌ This command only works in groups.\n\n*Usage:* \\${currentPrefix}welcome-off` 
-    });
+    await sock.sendMessage(chatId, { text: "⚠️ This command only works in groups." });
     return;
   }
 
   welcomeData[chatId].enabled = false;
   fs.writeFileSync(welcomeFile, JSON.stringify(welcomeData, null, 2));
-  await sock.sendMessage(chatId, { 
-      text: "✅ Welcome message disabled!\n\n*Usage:* \\${currentPrefix}welcome-off" 
-  });
+  await sock.sendMessage(chatId, { text: "✅ Welcome message diabled!" });
 }
+
 
 //set Welcome Message
 if (command === 'welcome-set') {
   const newMsg = args.join(" ");
   if (!newMsg) {
-    await sock.sendMessage(chatId, { 
-        text: `❌ Please provide a welcome message.\n\n*Usage:* \\${currentPrefix}welcome-set [message]` 
-    });
+    await sock.sendMessage(chatId, { text: "⚠️ Usage: " + currentPrefix + "welcome-set <message>" });
     return;
   }
 
@@ -6895,9 +6837,7 @@ if (command === 'welcome-set') {
 
   welcomeData[chatId].message = newMsg;
   fs.writeFileSync(welcomeFile, JSON.stringify(welcomeData, null, 2));
-  await sock.sendMessage(chatId, { 
-      text: `✍️ Welcome message updated:\n${newMsg}\n\n*Usage:* \\${currentPrefix}welcome-set [message]` 
-  });
+  await sock.sendMessage(chatId, { text: `✍️ Welcome message updated:\n${newMsg}` });
 }
 
 //Toggle GoodBye Message
@@ -6905,9 +6845,7 @@ if (command === 'goodbye') {
   const chatId = msg.key.remoteJid;
   const isGroup = chatId.endsWith('@g.us');
   if (!isGroup) {
-    await sock.sendMessage(chatId, { 
-        text: `❌ This command only works in groups.\n\n*Usage:* \\${currentPrefix}goodbye on/off` 
-    });
+    await sock.sendMessage(chatId, { text: '❌ This command only works in groups.' });
     return;
   }
 
@@ -6931,20 +6869,14 @@ if (command === 'goodbye') {
     if (!settings[chatId]) settings[chatId] = {};
     settings[chatId].goodbyeEnabled = true;
     fs.writeFileSync(settingsFile, JSON.stringify(settings, null, 2));
-    await sock.sendMessage(chatId, { 
-        text: '✅ Goodbye message enabled for this group.\n\n*Usage:* \\${currentPrefix}goodbye on' 
-    });
+    await sock.sendMessage(chatId, { text: '✅ Goodbye message enabled for this group.' });
   } else if (arg === 'off') {
     if (!settings[chatId]) settings[chatId] = {};
     settings[chatId].goodbyeEnabled = false;
     fs.writeFileSync(settingsFile, JSON.stringify(settings, null, 2));
-    await sock.sendMessage(chatId, { 
-        text: '🚫 Goodbye message disabled for this group.\n\n*Usage:* \\${currentPrefix}goodbye off' 
-    });
+    await sock.sendMessage(chatId, { text: '🚫 Goodbye message disabled for this group.' });
   } else {
-    await sock.sendMessage(chatId, { 
-        text: `❌ Please specify on or off.\n\n*Usage:* \\${currentPrefix}goodbye on/off` 
-    });
+    await sock.sendMessage(chatId, { text: "Usage: " + currentPrefix + "goodbye on / ~goodbye off" });
   }
 }
 
@@ -6955,9 +6887,7 @@ if (command === 'promote-on') {
   const promoteData = JSON.parse(fs.readFileSync(promoteFile));
 
   if (!isGroup) {
-    await sock.sendMessage(chatId, { 
-        text: `❌ This command only works in groups.\n\n*Usage:* \\${currentPrefix}promote-on` 
-    });
+    await sock.sendMessage(chatId, { text: "❌ This command only works in groups." });
     return;
   }
 
@@ -6967,9 +6897,7 @@ if (command === 'promote-on') {
 
   promoteData[chatId].enabled = true;
   fs.writeFileSync(promoteFile, JSON.stringify(promoteData, null, 2));
-  await sock.sendMessage(chatId, { 
-      text: "✅ Promote notifications enabled!\n\n*Usage:* \\${currentPrefix}promote-on" 
-  });
+  await sock.sendMessage(chatId, { text: "✅ Promote notifications enabled!" });
 }
 
 if (command === 'promote-off') {
@@ -6978,9 +6906,7 @@ if (command === 'promote-off') {
   const promoteData = JSON.parse(fs.readFileSync(promoteFile));
 
   if (!isGroup) {
-    await sock.sendMessage(chatId, { 
-        text: `❌ This command only works in groups.\n\n*Usage:* \\${currentPrefix}promote-off` 
-    });
+    await sock.sendMessage(chatId, { text: "❌ This command only works in groups." });
     return;
   }
 
@@ -6990,17 +6916,13 @@ if (command === 'promote-off') {
 
   promoteData[chatId].enabled = false;
   fs.writeFileSync(promoteFile, JSON.stringify(promoteData, null, 2));
-  await sock.sendMessage(chatId, { 
-      text: "❌ Promote notifications disabled!\n\n*Usage:* \\${currentPrefix}promote-off" 
-  });
+  await sock.sendMessage(chatId, { text: "❌ Promote notifications disabled!" });
 }
 
 if (command === 'set-promote') {
   const newMsg = args.join(" ");
   if (!newMsg) {
-    await sock.sendMessage(chatId, { 
-        text: `❌ Please provide a promote message.\n\n*Usage:* \\${currentPrefix}set-promote [message]\n*You can use @user to mention the promoted user*` 
-    });
+    await sock.sendMessage(chatId, { text: "❌ Usage: " + currentPrefix + "set-promote <message>\nYou can use @user to mention the promoted user" });
     return;
   }
 
@@ -7014,9 +6936,7 @@ if (command === 'set-promote') {
 
   promoteData[chatId].message = newMsg;
   fs.writeFileSync(promoteFile, JSON.stringify(promoteData, null, 2));
-  await sock.sendMessage(chatId, { 
-      text: `✍️ Promote message updated:\n${newMsg}\n\n*Usage:* \\${currentPrefix}set-promote [message]` 
-  });
+  await sock.sendMessage(chatId, { text: `✍️ Promote message updated:\n${newMsg}` });
 }
 
 if (command === 'demote-on') {
@@ -7025,9 +6945,7 @@ if (command === 'demote-on') {
   const demoteData = JSON.parse(fs.readFileSync(demoteFile));
 
   if (!isGroup) {
-    await sock.sendMessage(chatId, { 
-        text: `❌ This command only works in groups.\n\n*Usage:* \\${currentPrefix}demote-on` 
-    });
+    await sock.sendMessage(chatId, { text: "❌ This command only works in groups." });
     return;
   }
 
@@ -7037,9 +6955,7 @@ if (command === 'demote-on') {
 
   demoteData[chatId].enabled = true;
   fs.writeFileSync(demoteFile, JSON.stringify(demoteData, null, 2));
-  await sock.sendMessage(chatId, { 
-      text: "✅ Demote notifications enabled!\n\n*Usage:* \\${currentPrefix}demote-on" 
-  });
+  await sock.sendMessage(chatId, { text: "✅ Demote notifications enabled!" });
 }
 
 if (command === 'demote-off') {
@@ -7048,9 +6964,7 @@ if (command === 'demote-off') {
   const demoteData = JSON.parse(fs.readFileSync(demoteFile));
 
   if (!isGroup) {
-    await sock.sendMessage(chatId, { 
-        text: `❌ This command only works in groups.\n\n*Usage:* \\${currentPrefix}demote-off` 
-    });
+    await sock.sendMessage(chatId, { text: "❌ This command only works in groups." });
     return;
   }
 
@@ -7060,17 +6974,13 @@ if (command === 'demote-off') {
 
   demoteData[chatId].enabled = false;
   fs.writeFileSync(demoteFile, JSON.stringify(demoteData, null, 2));
-  await sock.sendMessage(chatId, { 
-      text: "❌ Demote notifications disabled!\n\n*Usage:* \\${currentPrefix}demote-off" 
-  });
+  await sock.sendMessage(chatId, { text: "❌ Demote notifications disabled!" });
 }
 
 if (command === 'set-demote') {
   const newMsg = args.join(" ");
   if (!newMsg) {
-    await sock.sendMessage(chatId, { 
-        text: `❌ Please provide a demote message.\n\n*Usage:* \\${currentPrefix}set-demote [message]\n*You can use @user to mention the demoted user*` 
-    });
+    await sock.sendMessage(chatId, { text: "❌ Usage: " + currentPrefix + "set-demote <message>\nYou can use @user to mention the demoted user" });
     return;
   }
 
@@ -7084,9 +6994,7 @@ if (command === 'set-demote') {
 
   demoteData[chatId].message = newMsg;
   fs.writeFileSync(demoteFile, JSON.stringify(demoteData, null, 2));
-  await sock.sendMessage(chatId, { 
-      text: `✍️ Demote message updated:\n${newMsg}\n\n*Usage:* \\${currentPrefix}set-demote [message]` 
-  });
+  await sock.sendMessage(chatId, { text: `✍️ Demote message updated:\n${newMsg}` });
 }
 
 // Anti-Status Mention without Deletion
@@ -7095,9 +7003,7 @@ if (command === 'antimention') {
     const isGroup = chatId.endsWith('@g.us');
     
     if (!isGroup) {
-        await sock.sendMessage(chatId, { 
-            text: `❌ This command only works in groups.\n\n*Usage:* \\${currentPrefix}antimention on/off` 
-        });
+        await sock.sendMessage(chatId, { text: '❌ This command only works in groups.' });
         return;
     }
 
@@ -7121,31 +7027,24 @@ if (command === 'antimention') {
         if (!config[chatId]) config[chatId] = {};
         config[chatId].enabled = true;
         fs.writeFileSync(configFile, JSON.stringify(config, null, 2));
-       await sock.sendMessage(chatId, { 
-           text: '✅ Anti-mention protection enabled for this group.\n\n*Usage:* \\${currentPrefix}antimention on' 
-       });
+       await sock.sendMessage(chatId, { react: { text: "✅", key: msg.key } });
     } else if (arg === 'off') {
         if (!config[chatId]) config[chatId] = {};
         config[chatId].enabled = false;
         fs.writeFileSync(configFile, JSON.stringify(config, null, 2));
-        await sock.sendMessage(chatId, { 
-            text: '🚫 Anti-mention protection disabled for this group.\n\n*Usage:* \\${currentPrefix}antimention off' 
-        });
+        await sock.sendMessage(chatId, { text: '🚫 Anti-mention protection disabled for this group.' });
     } else {
-       await sock.sendMessage(chatId, { 
-           text: `❌ Please specify on or off.\n\n*Usage:* \\${currentPrefix}antimention on/off\n\n📝 When enabled, the bot will delete @everyone mentions and warn users automatically.` 
-       });
+       await sock.sendMessage(chatId, { text: `Usage: ${prefix}antimention on / ${prefix}antimention off\n\n📝 When enabled, the bot will delete @everyone mentions and warn users automatically.` });
     }
 }
 
-// Anti Link Actived
+        
+      // Anti Link Actived
 if (command === 'antilink-on') {
     await sock.sendMessage(chatId, { react: { text: "⌛", key: msg.key } });
     try {
         if (!isGroup) {
-            await sock.sendMessage(chatId, { 
-                text: `❌ This command only works in groups.\n\n*Usage:* \\${currentPrefix}antilink-on` 
-            });
+            await sock.sendMessage(chatId, { text: "❌ This command only works in groups." });
             return;
         }
 
@@ -7161,7 +7060,7 @@ if (command === 'antilink-on') {
         antilinkData[chatId].enabled = true;
         fs.writeFileSync(antilinkFile, JSON.stringify(antilinkData, null, 2));
 
-        const responseMessage = `✅ Anti-link activated for this group\n\n*Usage:* \\${currentPrefix}antilink-on`;
+        const responseMessage = `✅ Anti-link activated for this group`;
         await sock.sendMessage(chatId, { text: responseMessage }, { quoted: msg });
         console.log(`Response: ${responseMessage}`);
 
@@ -7177,9 +7076,7 @@ if (command === 'antilink-off') {
     await sock.sendMessage(chatId, { react: { text: "⌛", key: msg.key } });
     try {
         if (!isGroup) {
-            await sock.sendMessage(chatId, { 
-                text: `❌ This command only works in groups.\n\n*Usage:* \\${currentPrefix}antilink-off` 
-            });
+            await sock.sendMessage(chatId, { text: "❌ This command only works in groups." });
             return;
         }
 
@@ -7195,7 +7092,7 @@ if (command === 'antilink-off') {
         antilinkData[chatId].enabled = false;
         fs.writeFileSync(antilinkFile, JSON.stringify(antilinkData, null, 2));
 
-        const responseMessage = `❌ Anti-link deactivated for this group\n\n*Usage:* \\${currentPrefix}antilink-off`;
+        const responseMessage = `❌ Anti-link deactivated for this group`;
         await sock.sendMessage(chatId, { text: responseMessage }, { quoted: msg });
         console.log(`Response: ${responseMessage}`);
 
@@ -7211,9 +7108,7 @@ if (command === 'antilink-status') {
     try {
         const antilinkFile = './src/antilink.json';
         if (!fs.existsSync(antilinkFile)) {
-            await sock.sendMessage(chatId, { 
-                text: `❌ Anti-link system not configured for this group.\n\n*Usage:* \\${currentPrefix}antilink-on to enable` 
-            });
+            await sock.sendMessage(chatId, { text: "❌ Anti-link system not configured for this group." });
             return;
         }
 
@@ -7221,8 +7116,8 @@ if (command === 'antilink-status') {
         const isEnabled = antilinkData[chatId] && antilinkData[chatId].enabled;
         const status = isEnabled ? "🟢 ENABLED" : "🔴 DISABLED";
         
-        await sock.sendMessage(chatId, {
-            text: `🔗 *Anti-Link Status*\n\nStatus: ${status}\n\n*Usage:* \\${currentPrefix}antilink-on to enable\n*Usage:* \\${currentPrefix}antilink-off to disable` 
+        await sock.sendMessage(chatId, { 
+            text: "🔗 *Anti-Link Status*\n\nStatus: " + status + "\n\nUse " + currentPrefix + "*antilink-on* to enable\nUse *" + currentPrefix + "antilink-off* to disable"
         });
         
         await sock.sendMessage(chatId, { react: { text: "✅", key: msg.key } });
@@ -7231,77 +7126,71 @@ if (command === 'antilink-status') {
         await sock.sendMessage(chatId, { react: { text: "❌", key: msg.key } });
     }
 }
-
-// Badwords Actived
-if (command === 'antibadwords-on') {
-    await sock.sendMessage(chatId, { react: { text: "⌛", key: msg.key } });
-    try {
-        config.ANTI_BADWORDS = true;
-
-        fs.writeFileSync(configPath, JSON.stringify(config, null, 2), 'utf-8');
-
-        const responseMessage = "✅ Antibadwords Activated\n\n*Usage:* \\${currentPrefix}antibadwords-on";
-        await sock.sendMessage(chatId, { text: responseMessage }, { quoted: msg });
-        console.log(`Response: ${responseMessage}`);
-
-        await sock.sendMessage(chatId, { react: { text: "✅", key: msg.key } });
-    } catch (error) {
-        console.error('Error sending message:', error);
-        await sock.sendMessage(chatId, { react: { text: "❌", key: msg.key } });
-    }
-}
-
-// Badwords Deactivated
-if ( command === 'antibadwords-off') {
-    await sock.sendMessage(chatId, { react: { text: "⌛", key: msg.key } });
-    try {
-        config.ANTI_BADWORDS = false;
-
-        fs.writeFileSync(configPath, JSON.stringify(config, null, 2), 'utf-8');
-
-        const responseMessage = "❌ Badwords Deactivated\n\n*Usage:* \\${currentPrefix}antibadwords-off";
-        await sock.sendMessage(chatId, { text: responseMessage }, { quoted: msg });
-        console.log(`Response: ${responseMessage}`);
-
-        await sock.sendMessage(chatId, { react: { text: "✅", key: msg.key } });
-    } catch (error) {
-        console.error('Error sending message:', error);
-        await sock.sendMessage(chatId, { react: { text: "❌", key: msg.key } });
-    }
-}
-
-// Public Mode
-if (command === 'public') {
-    await sock.sendMessage(chatId, { react: { text: "⌛", key: msg.key } });
-    try {
-        config.SELF_BOT_MESSAGE = false;
-        fs.writeFileSync(configPath, JSON.stringify(config, null, 2), 'utf-8');
-        await sock.sendMessage(chatId, { 
-            text: "✅ Public mode activated - Bot responds to everyone\n\n*Usage:* \\${currentPrefix}public" 
-        }, { quoted: msg });
-        await sock.sendMessage(chatId, { react: { text: "✅", key: msg.key } });
-    } catch (error) {
-        console.error('Error sending message:', error);
-        await sock.sendMessage(chatId, { react: { text: "❌", key: msg.key } });
-    }
-}
-
-// Private Mode
-if (command === 'private') {
-    await sock.sendMessage(chatId, { react: { text: "⌛", key: msg.key } });
-    try {
-        config.SELF_BOT_MESSAGE = true;
-        fs.writeFileSync(configPath, JSON.stringify(config, null, 2), 'utf-8');
-        await sock.sendMessage(chatId, { 
-            text: "✅ Private mode activated - Bot responds only to you\n\n*Usage:* \\${currentPrefix}private" 
-        }, { quoted: msg });
-        await sock.sendMessage(chatId, { react: { text: "✅", key: msg.key } });
-    } catch (error) {
-        console.error('Error sending message:', error);
-        await sock.sendMessage(chatId, { react: { text: "❌", key: msg.key } });
-    }
-  }
-}
+		// Badwords Actived
+        if (command === 'antibadwords-on') {
+            await sock.sendMessage(chatId, { react: { text: "⌛", key: msg.key } });
+            try {
+                config.ANTI_BADWORDS = true;
+        
+                fs.writeFileSync(configPath, JSON.stringify(config, null, 2), 'utf-8');
+        
+                const responseMessage = "Antibadwords Activated";
+                await sock.sendMessage(chatId, { text: responseMessage }, { quoted: msg });
+                console.log(`Response: ${responseMessage}`);
+        
+                await sock.sendMessage(chatId, { react: { text: "✅", key: msg.key } });
+            } catch (error) {
+                console.error('Error sending message:', error);
+                await sock.sendMessage(chatId, { react: { text: "❌", key: msg.key } });
+            }
+        }
+        
+        // Badwords Deactivated
+        if ( command === 'antibadwords-off') {
+            await sock.sendMessage(chatId, { react: { text: "⌛", key: msg.key } });
+            try {
+                config.ANTI_BADWORDS = false;
+        
+                fs.writeFileSync(configPath, JSON.stringify(config, null, 2), 'utf-8');
+        
+                const responseMessage = "Badwords Deactivated";
+                await sock.sendMessage(chatId, { text: responseMessage }, { quoted: msg });
+                console.log(`Response: ${responseMessage}`);
+        
+                await sock.sendMessage(chatId, { react: { text: "✅", key: msg.key } });
+            } catch (error) {
+                console.error('Error sending message:', error);
+                await sock.sendMessage(chatId, { react: { text: "❌", key: msg.key } });
+            }
+        }
+		
+		// Public Mode
+        if (command === 'public') {
+            await sock.sendMessage(chatId, { react: { text: "⌛", key: msg.key } });
+            try {
+                config.SELF_BOT_MESSAGE = false;
+                fs.writeFileSync(configPath, JSON.stringify(config, null, 2), 'utf-8');
+                console.log(`Response: Self Bot Use Deactivated`);
+                await sock.sendMessage(chatId, { react: { text: "✅", key: msg.key } });
+            } catch (error) {
+                console.error('Error sending message:', error);
+                await sock.sendMessage(chatId, { react: { text: "❌", key: msg.key } });
+            }
+        }
+		
+		// Private Mode
+        if (command === 'private') {
+                    await sock.sendMessage(chatId, { react: { text: "⌛", key: msg.key } });
+            try {
+                config.SELF_BOT_MESSAGE = true;
+                fs.writeFileSync(configPath, JSON.stringify(config, null, 2), 'utf-8');
+                console.log(`Response: Self Bot Use Activated`);
+                await sock.sendMessage(chatId, { react: { text: "✅", key: msg.key } });
+            } catch (error) {
+                console.error('Error sending message:', error);
+                await sock.sendMessage(chatId, { react: { text: "❌", key: msg.key } });
+            }
+        }
+} 
 
 module.exports = Message;
-
