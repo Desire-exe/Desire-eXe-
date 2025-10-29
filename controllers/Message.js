@@ -1,12 +1,10 @@
 const { downloadMediaMessage } = require('@whiskeysockets/baileys');
 const { exec } = require('child_process');
-const puppeteer = require('puppeteer');
-const fs = require('fs');
-const path = require('path');
-const gTTS = require('gtts');
-const Tesseract = require('tesseract.js');
+const { managePresence, activePresenceChats, getSenderNumber } = require('../presenceSystem.js'); 
+const { WA_DEFAULT_EPHEMERAL } = require('@whiskeysockets/baileys');
+const { downloadContentFromMessage } = require('@whiskeysockets/baileys');
+const { promisify } = require('util');
 const { Octokit } = require('@octokit/rest');
-const QRCode = require('qrcode');
 const { GeminiMessage, GeminiImage, GeminiRoastingMessage, GeminiImageRoasting } = require('./Gemini');
 const { WikipediaSearch, WikipediaAI, WikipediaImage } = require('./Wikipedia');
 const { Weather } = require('./Weather');
@@ -19,24 +17,56 @@ const { AesEncryption, AesDecryption, CamelliaEncryption, CamelliaDecryption, Sh
 const { YoutubeVideo, YoutubeAudio, FacebookVideo, FacebookAudio, TwitterVideo, TwitterAudio, InstagramVideo, InstagramAudio, TikTokVideo, TikTokAudio, VimeoVideo, VimeoAudio  } = require('./Downloader');
 const { DetikNews, DetikViral, DetikLatest } = require('./Detik');
 const { AnimeVideo, downloadImage } = require('./Anime');
+const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args));
+const QRCode = require('qrcode');
+const delay = ms => new Promise(res => setTimeout(res, ms));
+const fs = require('fs');
+const path = require('path');
+const gTTS = require('gtts');
+const P = require('pino');
+const Tesseract = require('tesseract.js');
+const ownerNumber = '2347017747337';
+const os = require('os');
+const process = require('process');
+const execAsync = promisify(exec);
+const dns = require('dns');
+const chatSessions = require('./chatSessions'); 
+const getAIResponse = require('./getAIResponse');
+const { exec: ytExec } = require('yt-dlp-exec');
+const playdl = require('play-dl');
+const axios = require('axios');
+const ffmpeg = require('fluent-ffmpeg');
+const validFileTypes = ['pdf', 'doc', 'docx', 'ppt', 'pptx', 'xls', 'xlsx', 'txt'];
+
+// ✅ Load config ONCE at the top
 const configPath = path.join(__dirname, '../config.json');
 const warningFile = './warnings.json';
+let config = {};
 
-function loadWarnings() {
-    try {
-        const data = fs.readFileSync(warningFile);
-        return JSON.parse(data);
-    } catch {
-        return {};
+try {
+    if (fs.existsSync(configPath)) {
+        config = JSON.parse(fs.readFileSync(configPath, "utf-8"));
+    } else {
+        console.error('❌ config.json not found');
+        config = {
+            ANTI_BADWORDS: false,
+            SELF_BOT_MESSAGE: false,
+            BAD_WORDS: [],
+            prefix: '.'
+        };
     }
+} catch (error) {
+    console.error('❌ Error loading config:', error);
+    config = {
+        ANTI_BADWORDS: false,
+        SELF_BOT_MESSAGE: false,
+        BAD_WORDS: [],
+        prefix: '.'
+    };
 }
 
-function saveWarnings(data) {
-    fs.writeFileSync(warningFile, JSON.stringify(data, null, 2));
-}
-// ✅ Load config once
-let config = JSON.parse(fs.readFileSync(configPath, "utf-8"));
 global.prefix = config.prefix || ".";
+
 
 // ✅ Extract message text safely
 function extractTextFromMessage(msg) {
@@ -55,7 +85,6 @@ function containsBadWords(message) {
     const regex = new RegExp(`\\b(${config.BAD_WORDS.join("|")})\\b`, "i");
     return regex.test(message);
 }
-
 // ✅ URL detector
 const urlRegex =
     /(https?:\/\/[^\s]+|www\.[^\s]+|\b[a-zA-Z0-9-]+\.(com|net|org|io|gov|edu|ng|uk)\b)/i;
@@ -70,9 +99,6 @@ async function Message(sock, messages) {
     if (!msg.message) return;
     if (msg.message?.protocolMessage) return;
     if (msg.message?.senderKeyDistributionMessage) return;
-    
-
-    
 
     const messageBody = extractTextFromMessage(msg);
     if (!messageBody || typeof messageBody !== "string") return;
@@ -89,81 +115,149 @@ async function Message(sock, messages) {
             console.error("❌ Error deleting badword message:", error);
         }
     }
-// 🚫 Anti-link
-if (config.ANTI_LINK && messageBody && msg.key.remoteJid.endsWith('@g.us')) {
-    const urlRegex = /https?:\/\/[^\s]+|(?:www\.)?[a-zA-Z0-9-]+\.[a-zA-Z]{2,}|bit\.ly|t\.co|goo\.gl|tinyurl|t\.me|wa\.me/g;
-    
-    // Check if message contains links AND is not from the bot itself
-    if (urlRegex.test(messageBody) && !msg.key.fromMe) {
+
+    // 🚫 Anti-link (Group Specific)
+    // Check if anti-link is enabled for this group
+    const antilinkFile = './src/antilink.json';
+    if (fs.existsSync(antilinkFile)) {
         try {
-            // Add reaction first to show action
-            await sock.sendMessage(chatId, { react: { text: "🚫", key: msg.key } });
+            const antilinkData = JSON.parse(fs.readFileSync(antilinkFile));
             
-            const deleteOptions = {
-                remoteJid: chatId,
-                fromMe: false, // Fixed: should be false since we're deleting others' messages
-                id: msg.key.id,
-                participant: msg.key.participant // Include participant for group messages
-            };
-
-            await sock.sendMessage(chatId, { delete: deleteOptions });
-            console.log(`🔗 Anti-URL: Deleted message from ${msg.key.participant || 'unknown'} (${msg.key.id})`);
-
-            // Warn user with better formatting
-            if (msg.key.participant) {
-                await sock.sendMessage(chatId, {
-                    text: `⚠️ *Link Detected!*\n\n@${msg.key.participant.split('@')[0]} *Links are not allowed in this group!*\n\n🚫 Your message has been deleted.`,
-                    mentions: [msg.key.participant]
-                });
-            } else {
-                await sock.sendMessage(chatId, {
-                    text: `⚠️ *Link Detected!*\n\n🚫 Links are not allowed in this group!\n\nThe message has been deleted.`
-                });
+            // Check if anti-link is enabled for this specific group
+            const isAntiLinkEnabled = antilinkData[chatId] && antilinkData[chatId].enabled;
+            
+            if (isAntiLinkEnabled && messageBody && msg.key.remoteJid.endsWith('@g.us')) {
+                // Improved URL regex - more comprehensive
+                const urlRegex = /(https?:\/\/[^\s]+)|(www\.[^\s]+)|([^\s]+\.[a-zA-Z]{2,}[^\s]*)|(bit\.ly\/[^\s]+)|(t\.co\/[^\s]+)|(goo\.gl\/[^\s]+)|(tinyurl\.com\/[^\s]+)|(t\.me\/[^\s]+)|(wa\.me\/[^\s]+)/gi;
+                
+                // Check if message contains links AND is not from the bot itself
+                const containsLink = urlRegex.test(messageBody);
+                
+                if (containsLink && !msg.key.fromMe) {
+                    console.log(`🔗 Anti-URL: Detected link in message from ${msg.key.participant}`);
+                    
+                    try {
+                        // Add reaction first to show action
+                        await sock.sendMessage(chatId, { react: { text: "🚫", key: msg.key } });
+                        
+                        // Try to delete the message - SIMPLIFIED approach
+                        await sock.sendMessage(chatId, { 
+                            delete: {
+                                id: msg.key.id,
+                                remoteJid: chatId,
+                                fromMe: false,
+                                participant: msg.key.participant
+                            }
+                        });
+                        
+                        console.log(`✅ Anti-URL: Successfully deleted message with ID: ${msg.key.id}`);
+                        
+                        // Warn user with better formatting
+                        const warningMessage = msg.key.participant 
+                            ? `⚠️ *Link Detected!*\n\n@${msg.key.participant.split('@')[0]} *Links are not allowed in this group!*\n\n🚫 Your message has been deleted.`
+                            : `⚠️ *Link Detected!*\n\n🚫 Links are not allowed in this group!\n\nThe message has been deleted.`;
+                        
+                        const messageOptions = {
+                            text: warningMessage
+                        };
+                        
+                        if (msg.key.participant) {
+                            messageOptions.mentions = [msg.key.participant];
+                        }
+                        
+                        await sock.sendMessage(chatId, messageOptions);
+                        return; // Stop further processing
+                        
+                    } catch (deleteError) {
+                        console.error('❌ Anti-URL Deletion Error:', deleteError);
+                        
+                        // Enhanced error handling
+                        let errorMessage = "⚠️ *System Error*\n\nFailed to process link detection.";
+                        
+                        if (deleteError.message?.includes("405") || deleteError.message?.includes("not authorized")) {
+                            errorMessage = "⚠️ *Admin Rights Required!*\n\nI need admin permissions to delete messages in this group.";
+                        } else if (deleteError.message?.includes("Message not found")) {
+                            errorMessage = "⚠️ *Link Warning!*\n\nLinks are not allowed here. The message was already deleted.";
+                        } else if (deleteError.message?.includes("Forbidden")) {
+                            errorMessage = "⚠️ *Permission Denied!*\n\nI don't have permission to delete messages. Please make me admin.";
+                        }
+                        
+                        await sock.sendMessage(chatId, { text: errorMessage });
+                        await sock.sendMessage(chatId, { react: { text: "❌", key: msg.key } });
+                    }
+                }
             }
-
         } catch (error) {
-            console.error('❌ Anti-URL Error:', error);
-            
-            // Different error handling based on error type
-            if (error.message.includes("405") || error.message.includes("not authorized")) {
-                await sock.sendMessage(chatId, { 
-                    text: "⚠️ *Admin Rights Required!*\n\nI need admin permissions to delete links in this group." 
-                });
-                await sock.sendMessage(chatId, { react: { text: "❌", key: msg.key } });
-            } else if (error.message.includes("Message not found")) {
-                await sock.sendMessage(chatId, { 
-                    text: "⚠️ *Link Warning!*\n\nLinks are not allowed here. The message was already deleted." 
-                });
-            } else {
-                await sock.sendMessage(chatId, { 
-                    text: "⚠️ *System Error*\n\nFailed to process link detection. Please try again." 
-                });
-                await sock.sendMessage(chatId, { react: { text: "😔", key: msg.key } });
-            }
+            console.error('❌ Error reading antilink.json:', error);
         }
     }
-}
 
-	    // ✅ Use ONLY the configured prefix
+    // ✅ Use ONLY the configured prefix
     const currentPrefix = global.prefix;
     let command = null;
     let args = [];
 
     if (messageBody.startsWith(currentPrefix)) {
-    const parts = messageBody.slice(currentPrefix.length).trim().split(' ');
-    command = parts[0]; // Removed .toLowerCase()
-    args = parts.slice(1);
-}
-
-
+        const parts = messageBody.slice(currentPrefix.length).trim().split(' ');
+        command = parts[0]; // Removed .toLowerCase()
+        args = parts.slice(1);
+    }
 
     console.log('📥 Parsed command:', command);
     console.log('📥 Args:', args);
     console.log('📥 Prefix:', currentPrefix);
 
+    // ==============================================
+    // 🔹 IF NO COMMAND, IGNORE THE MESSAGE
+    // ==============================================
+    if (!command) {
+        return; // Exit if it's not a command
+    }
+
+    // ==============================================
+    // 🔹 AUTHORIZATION CHECK (ONLY FOR COMMANDS)
+    // ==============================================
+    function getSenderJid(msg) {
+        // If you sent the message
+        if (msg.key.fromMe) {
+            return '2347017747337@s.whatsapp.net'; // Your JID
+        }
+        
+        const isGroup = msg.key.remoteJid.endsWith('@g.us');
+        
+        if (isGroup) {
+            // Extract from participant field
+            const participant = msg.key.participant;
+            
+            if (typeof participant === 'string') {
+                return participant;
+            } else if (participant?.id) {
+                return participant.id;
+            } else if (participant?.jid) {
+                return participant.jid;
+            } else {
+                // Last resort - try to parse from message structure
+                console.log('Participant structure:', participant);
+                return null;
+            }
+        } else {
+            // Private chat
+            return msg.key.remoteJid;
+        }
+    }
+
+    const senderJid = getSenderJid(msg);
+    const ownerJid = '2347017747337@s.whatsapp.net';
+    const isOwner = senderJid === ownerJid || msg.key.fromMe;
+
+    // Check if command should be allowed based on public/private mode
+    if (config.SELF_BOT_MESSAGE && !isOwner) {
+        // Private mode + not owner = react with 🚫 and ignore
+        await sock.sendMessage(chatId, { react: { text: "🚫", key: msg.key } });
+        return;
+    }
+
     // 🔹 setprefix command
-const fs = require('fs');     
-const path = require('path');
     if (command === "setprefix") {
         if (!args[0]) {
             await sock.sendMessage(
@@ -223,32 +317,31 @@ const path = require('path');
         }
     }
 
-
-if (command === "smile") {
-    try {
-        const steps = ["I", "LOVE", "YOU", "BABY", "SMILE", "SMILEY FACE 😄"];
-        // Initial message must be plain text (not extendedTextMessage)
-        const response = await sock.sendMessage(chatId, {
-            text: steps[0]
-        });
-
-        for (let i = 1; i < steps.length; i++) {
-            await new Promise(resolve => setTimeout(resolve, 600)); // delay between edits
-            await sock.sendMessage(chatId, {
-                text: steps[i],
-                edit: response.key
+    if (command === "smile") {
+        try {
+            const steps = ["I", "LOVE", "YOU", "BABY", "SMILE", "SMILEY FACE 😄"];
+            // Initial message must be plain text (not extendedTextMessage)
+            const response = await sock.sendMessage(chatId, {
+                text: steps[0]
             });
+
+            for (let i = 1; i < steps.length; i++) {
+                await new Promise(resolve => setTimeout(resolve, 600)); // delay between edits
+                await sock.sendMessage(chatId, {
+                    text: steps[i],
+                    edit: response.key
+                });
+            }
+
+        } catch (error) {
+            console.error("Error editing message:", error);
+            await sock.sendMessage(chatId, {
+                text: "❌ Failed to animate smile.",
+            }, { quoted: msg });
         }
-
-    } catch (error) {
-        console.error("Error editing message:", error);
-        await sock.sendMessage(chatId, {
-            text: "❌ Failed to animate smile.",
-        }, { quoted: msg });
     }
-}
 
-//🔹Send Basic Image
+    //🔹Send Basic Image
     if (command === "send-img") {
         await sock.sendMessage(chatId, { react: { text: "⌛", key: msg.key } });
         try {
@@ -263,48 +356,25 @@ if (command === "smile") {
         }
     }
 
+    // ==============================================
+    // 🔹PRESENCE COMMANDS
+    // ==============================================
+    // ------------------ AUTOTYPE ON ------------------
+    if (command === 'autotype-on') {
+        const senderNumber = getSenderNumber(msg);
+        const isOwner = senderNumber === ownerNumber;
 
-
-const ownerJid = "2347017747337@s.whatsapp.net" // <-- your number with @s.whatsapp.net
-const sender = msg.key.participant || msg.key.remoteJid
-
-
-const isOwner = sender === ownerJid || msg.key.fromMe
-
-const allowCommand = !(config.SELF_BOT_MESSAGE && !isOwner);
-
-
-if (allowCommand) {
-const messageBody =
-msg.message?.conversation ||
-msg.message?.extendedTextMessage?.text ||
-msg.message?.imageMessage?.caption ||
-msg.message?.videoMessage?.caption ||
-'';
-const { managePresence, activePresenceChats, getSenderNumber } = require('../presenceSystem.js');
-
-const ownerNumber = '2347017747337'; // Your number
-
-// ==============================================
-// 🔹PRESENCE COMMANDS
-// ==============================================
-
-// ------------------ AUTOTYPE ON ------------------
-if (command === 'autotype-on') {
-    const senderNumber = getSenderNumber(msg);
-    const isOwner = senderNumber === ownerNumber;
-
-    await sock.sendMessage(chatId, { react: { text: "👨‍💻", key: msg.key } });
-    try {
-        await managePresence(sock, chatId, 'composing', true);
-        await sock.sendMessage(chatId, { text: `✍️ Typing indicator ON in this chat (will persist after restart)` }, { quoted: msg });
-        await sock.sendMessage(chatId, { react: { text: "✅", key: msg.key } });
-    } catch (error) {
-        console.error('Error:', error);
-        await sock.sendMessage(chatId, { react: { text: "❌", key: msg.key } });
+        await sock.sendMessage(chatId, { react: { text: "👨‍💻", key: msg.key } });
+        try {
+            await managePresence(sock, chatId, 'composing', true);
+            await sock.sendMessage(chatId, { text: `✍️ Typing indicator ON in this chat (will persist after restart)` }, { quoted: msg });
+            await sock.sendMessage(chatId, { react: { text: "✅", key: msg.key } });
+        } catch (error) {
+            console.error('Error:', error);
+            await sock.sendMessage(chatId, { react: { text: "❌", key: msg.key } });
+        }
+        return;
     }
-    return;
-}
 
 // ------------------ AUTOTYPE OFF ------------------
 if (command === 'autotype-off') {
@@ -494,21 +564,54 @@ if (command === 'Des-info') {
     console.log('Bot information sent successfully.');
 }
 
-const { WA_DEFAULT_EPHEMERAL } = require('@whiskeysockets/baileys');
 
-// 👨‍💻 Enable disappearing messages (24 hours)
+// 👨‍💻 Enable disappearing messages with options
 if (command === 'dis-on') {
+    if (!args[0]) {
+        // Show options if no duration specified
+        const optionsMessage = `💨 *Disappearing Messages*\n\nPlease choose a duration:\n\n• *24h* - 24 hours\n• *72h* - 72 hours  \n• *7d* - 7 days\n\nUsage: ${currentPrefix}dis-on <option>\nExample: ${currentPrefix}dis-on 24h`;
+        await sock.sendMessage(chatId, { text: optionsMessage }, { quoted: msg });
+        return;
+    }
+
+    const duration = args[0].toLowerCase();
+    let seconds = 0;
+    let durationText = '';
+
+    switch(duration) {
+        case '24h':
+            seconds = 86400; // 24 hours
+            durationText = '24 hours';
+            break;
+        case '72h':
+            seconds = 259200; // 72 hours
+            durationText = '72 hours';
+            break;
+        case '7d':
+            seconds = 604800; // 7 days
+            durationText = '7 days';
+            break;
+        default:
+            await sock.sendMessage(chatId, { 
+                text: `❌ Invalid option! Please use: *24h*, *72h*, or *7d*\n\nExample: ${currentPrefix}dis-on 24h` 
+            }, { quoted: msg });
+            return;
+    }
+
     try {
         await sock.sendMessage(chatId, {
-            disappearingMessagesInChat: 86400  // 24 hours in seconds
+            disappearingMessagesInChat: seconds
         });
-        await sock.sendMessage(chatId, { text: "💨 Disappearing messages have been *enabled* (24 hours)." }, { quoted: msg });
+        await sock.sendMessage(chatId, { 
+            text: `💨 Disappearing messages have been *enabled* (${durationText}).` 
+        }, { quoted: msg });
     } catch (e) {
         console.error(e);
-        await sock.sendMessage(chatId, { text: "❌ Failed to enable disappearing messages." }, { quoted: msg });
+        await sock.sendMessage(chatId, { 
+            text: "❌ Failed to enable disappearing messages." 
+        }, { quoted: msg });
     }
 }
-
 
 // 👨‍💻 Disable disappearing messages
 if (command === 'dis-off') {
@@ -516,12 +619,18 @@ if (command === 'dis-off') {
         await sock.sendMessage(chatId, {
             disappearingMessagesInChat: 0   // 0 = Off
         });
-        await sock.sendMessage(chatId, { text: "🚫 Disappearing messages have been *disabled*." }, { quoted: msg });
+        await sock.sendMessage(chatId, { 
+            text: "🚫 Disappearing messages have been *disabled*." 
+        }, { quoted: msg });
     } catch (e) {
         console.error(e);
-        await sock.sendMessage(chatId, { text: "❌ Failed to disable disappearing messages." }, { quoted: msg });
+        await sock.sendMessage(chatId, { 
+            text: "❌ Failed to disable disappearing messages." 
+        }, { quoted: msg });
     }
 }
+
+
 
 // 👨‍💻 Delete Message 
 if (command === 'del' && msg.message?.extendedTextMessage?.contextInfo?.quotedMessage) {
@@ -557,11 +666,11 @@ if (command === 'poll') {
     try {
         const from = msg.key.remoteJid;
 
-        // Join args back into one string, then split by '|'
-        const input = args.join(" ").split("|").map(s => s.trim()).filter(s => s.length > 0);
+        // Join args back into one string, then split by ','
+        const input = args.join(" ").split(",").map(s => s.trim()).filter(s => s.length > 0);
 
         if (input.length < 2) {
-            await sock.sendMessage(from, { text: "❌ Usage: \\mpoll Question | option1 | option2 | ..." });
+            await sock.sendMessage(from, { text: "❌ Usage: \\poll Question, option1, option2, ..." });
             return;
         }
 
@@ -587,11 +696,11 @@ if (command === 'mpoll') {
     try {
         const from = msg.key.remoteJid;
 
-        // Join args back into one string, then split by '|'
-        const input = args.join(" ").split("|").map(s => s.trim()).filter(s => s.length > 0);
+        // Join args back into one string, then split by ','
+        const input = args.join(" ").split(",").map(s => s.trim()).filter(s => s.length > 0);
 
         if (input.length < 2) {
-            await sock.sendMessage(from, { text: "❌ Usage: \\mpoll Question | option1 | option2 | ..." });
+            await sock.sendMessage(from, { text: "❌ Usage: \\mpoll Question, option1, option2, ..." });
             return;
         }
 
@@ -616,11 +725,6 @@ if (command === 'mpoll') {
 // 🔹OWNER COMMANDS
 // ==============================================
 // 👨‍💻 Desire-eXe Menu 
- const os = require('os');
-const process = require('process');
-const fs = require('fs');
-const path = require('path');
-
 const getUptime = () => {
     const seconds = Math.floor(process.uptime());
     const days = Math.floor(seconds / (24 * 60 * 60));
@@ -654,8 +758,6 @@ const getPowerPercentage = () => {
 };
 
 // Import your existing config
-const config = require('../config.json'); // Adjust path as needed
-
 if (command === 'menu') {
     const filePath = path.join(__dirname, '../uploads/upload/Desire.png');
     const captionPath = path.join(__dirname, './Utils/menu.txt');
@@ -760,7 +862,7 @@ if (command === "owner" || command === "contact") {
 
 
 // 👨‍💻 Shutdown Desire-eXe
-	if (command === 'Desire-off') {
+if (command === 'shutdown') {
     const chatId = msg.key.remoteJid;
     const isGroup = chatId.endsWith('@g.us');
     const sender = isGroup ? msg.key.participant : msg.key.remoteJid;
@@ -777,41 +879,54 @@ if (command === "owner" || command === "contact") {
         text: "⚠️ Are you sure you want to shutdown *Desire eXe Bot*?\nReply with *yes* or *no* within 30 seconds.",
     }, { quoted: msg });
 
-    const filter = async ({ messages }) => {
-        const incoming = messages[0];
-        const responseChat = incoming.key.remoteJid;
-        const responseSender = incoming.key.participant || incoming.key.remoteJid;
-        const responseText = incoming.message?.conversation?.toLowerCase()
-            || incoming.message?.extendedTextMessage?.text?.toLowerCase();
+    let responseReceived = false;
 
+    // Create a one-time listener for the response
+    const responseHandler = async ({ messages }) => {
+        const incoming = messages[0];
+        if (!incoming.message || responseReceived) return;
+
+        const responseChat = incoming.key.remoteJid;
+        const responseSender = isGroup ? incoming.key.participant : incoming.key.remoteJid;
+        const responseText = (incoming.message?.conversation?.toLowerCase() ||
+                             incoming.message?.extendedTextMessage?.text?.toLowerCase() || '').trim();
+
+        // Check if it's the right chat and sender
         if (responseChat === chatId && responseSender === sender) {
             if (responseText === 'yes') {
+                responseReceived = true;
+                sock.ev.off('messages.upsert', responseHandler);
                 await sock.sendMessage(chatId, {
                     text: "🛑 Shutting down *Desire eXe Bot*..."
                 }, { quoted: incoming });
+                console.log('🛑 Bot shutdown initiated by owner');
                 process.exit(0);
             } else if (responseText === 'no') {
+                responseReceived = true;
+                sock.ev.off('messages.upsert', responseHandler);
                 await sock.sendMessage(chatId, {
-                    text: "❌ Shutdown cancelled."
+                    text: "✅ Shutdown cancelled."
                 }, { quoted: incoming });
             }
         }
     };
 
-
-    const listener = sock.ev.on('messages.upsert', filter);
+    // Add the listener
+    sock.ev.on('messages.upsert', responseHandler);
 
     // Timeout cleanup
     setTimeout(() => {
-        sock.ev.off('messages.upsert', filter);
-        sock.sendMessage(chatId, {
-            text: "⏰ Timeout. Shutdown cancelled."
-        }, { quoted: msg });
+        if (!responseReceived) {
+            sock.ev.off('messages.upsert', responseHandler);
+            sock.sendMessage(chatId, {
+                text: "⏰ Timeout. Shutdown cancelled."
+            }, { quoted: msg });
+        }
     }, 30000);
 }
 
 // 👨‍💻 Activate Desire-eXe
-if (command === 'Desire-Arise') {
+if (command === 'Arise') {
     const videoPath = path.join(__dirname, '../uploads/Arise.mp4');
 
     await sock.sendMessage(chatId, { react: { text: "👨‍💻", key: msg.key } });
@@ -859,74 +974,88 @@ if (command === 'groups' && sender === ownerJid) {
     }
 }
 
-// 👨‍💻 Save status
-const { downloadContentFromMessage } = require('@whiskeysockets/baileys');
+
 if (command === 'save') {
-  const isGroup = msg.key.remoteJid.endsWith('@g.us');
-  const sender = isGroup ? msg.key.participant : msg.key.remoteJid;
-  const ownerJid = '2347017747337@s.whatsapp.net'; // <-- your number with @s.whatsapp.net
+    const quoted = msg.message?.extendedTextMessage?.contextInfo?.quotedMessage;
 
-  if (sender !== ownerJid && !msg.key.fromMe) {
-    await sock.sendMessage(msg.key.remoteJid, {
-      text: '❌ You are not authorized to use this command.',
-    }, { quoted: msg });
-    return;
-  }
-
-  const quoted = msg.message?.extendedTextMessage?.contextInfo?.quotedMessage;
-
-  if (!quoted) {
-    await sock.sendMessage(msg.key.remoteJid, {
-      text: '⚠️ Reply to an image or video to repost and save.',
-    }, { quoted: msg });
-    return;
-  }
-
-  let mediaType, ext;
-  if (quoted.imageMessage) {
-    mediaType = 'imageMessage';
-    ext = '.jpg';
-  } else if (quoted.videoMessage) {
-    mediaType = 'videoMessage';
-    ext = '.mp4';
-  } else {
-    await sock.sendMessage(msg.key.remoteJid, {
-      text: '⚠️ Only image or video messages can be reposted.',
-    }, { quoted: msg });
-    return;
-  }
-
-  const mediaContent = quoted[mediaType];
-  const stream = await downloadContentFromMessage(mediaContent, mediaType === 'imageMessage' ? 'image' : 'video');
-  let buffer = Buffer.from([]);
-  for await (const chunk of stream) {
-    buffer = Buffer.concat([buffer, chunk]);
-  }
-
-  const dir = path.join(__dirname, 'saved_media');
-  if (!fs.existsSync(dir)) fs.mkdirSync(dir);
-
-  const filename = `media_${Date.now()}${ext}`;
-  const filePath = path.join(dir, filename);
-  fs.writeFileSync(filePath, buffer);
-
-  // Read the saved file and send
-  const mediaBuffer = fs.readFileSync(filePath);
-  await sock.sendMessage(ownerJid, {
-    [mediaType === 'imageMessage' ? 'image' : 'video']: mediaBuffer,
-    caption: mediaContent?.caption || ''
-  });
-
-  await sock.sendMessage(msg.key.remoteJid, {
-    reaction: {
-      text: "✅",
-      key: msg.key
+    if (!quoted) {
+        await sock.sendMessage(msg.key.remoteJid, {
+            text: '⚠️ Reply to a status (image/video) to save it.',
+        }, { quoted: msg });
+        return;
     }
-  });
+
+    let mediaType, mediaKey;
+    if (quoted.imageMessage) {
+        mediaType = 'imageMessage';
+        mediaKey = 'image';
+    } else if (quoted.videoMessage) {
+        mediaType = 'videoMessage';
+        mediaKey = 'video';
+    } else {
+        await sock.sendMessage(msg.key.remoteJid, {
+            text: '⚠️ Only image or video status can be saved.',
+        }, { quoted: msg });
+        return;
+    }
+
+    try {
+        const mediaContent = quoted[mediaType];
+        
+        // Download the status media
+        const stream = await downloadContentFromMessage(mediaContent, mediaKey);
+        let buffer = Buffer.from([]);
+        
+        for await (const chunk of stream) {
+            buffer = Buffer.concat([buffer, chunk]);
+        }
+
+        if (buffer.length === 0) {
+            throw new Error('Downloaded media is empty');
+        }
+
+        console.log(`✅ Downloaded status ${mediaType}: ${buffer.length} bytes`);
+
+        // Send the status media back to owner
+        if (mediaType === 'imageMessage') {
+            await sock.sendMessage(ownerJid, {
+                image: buffer,
+                caption: `📸 Saved Status\n\n⏰ ${new Date().toLocaleString()}`
+            });
+        } else if (mediaType === 'videoMessage') {
+            await sock.sendMessage(ownerJid, {
+                video: buffer,
+                caption: `🎥 Saved Status\n\n⏰ ${new Date().toLocaleString()}`
+            });
+        }
+
+        // Send success reaction
+        await sock.sendMessage(msg.key.remoteJid, {
+            react: {
+                text: "✅",
+                key: msg.key
+            }
+        });
+
+        console.log(`✅ Status ${mediaType} saved and sent to owner`);
+
+    } catch (err) {
+        console.error('Error saving status:', err);
+        
+        await sock.sendMessage(msg.key.remoteJid, {
+            text: `❌ Failed to save status: ${err.message}`,
+        }, { quoted: msg });
+
+        await sock.sendMessage(msg.key.remoteJid, {
+            react: {
+                text: "❌",
+                key: msg.key
+            }
+        });
+    }
 }
 
 // 👨‍💻 Set Profile Picture Command (DM Only)
-const P = require('pino');
 if (command === 'setpp') {
 
     const quotedMsg = msg.message?.extendedTextMessage?.contextInfo?.quotedMessage;
@@ -1003,21 +1132,7 @@ if (command === 'block') {
 
 
 // Send Spam Mesaage (Use with Caution)
-const delay = ms => new Promise(res => setTimeout(res, ms));
-
 if (command === 'sspam') {
-  const isGroup = msg.key.remoteJid.endsWith('@g.us');
-  const sender = isGroup ? msg.key.participant : msg.key.remoteJid;
-  const ownerJid = '2347017747337@s.whatsapp.net'; // <-- your number with @s.whatsapp.net
-
-  // Authorization
-  if (sender !== ownerJid && !msg.key.fromMe) {
-    await sock.sendMessage(chatId, {
-      text: '🚫 You are not authorized to eXecute this command.',
-    }, { quoted: msg });
-    return;
-  }
-
   // Ensure message starts with the right prefix+command
   if (!messageBody.startsWith(prefix + 'sspam')) {
     // not our command
@@ -1140,80 +1255,544 @@ if (command === 'fact') {
   await sock.sendMessage(chatId, { text: fact }, { quoted: msg });
 }
 
-
-// Open View-Once Messages
 if (command === 'vv') {
     const sender = msg.key.participant || msg.key.remoteJid;
-    const ownerJid = '2347017747337@s.whatsapp.net'; // <-- your number with @s.whatsapp.net
+    const ownerJid = '2347017747337@s.whatsapp.net';
     const contextInfo = msg.message?.extendedTextMessage?.contextInfo;
     const quotedMsg = contextInfo?.quotedMessage;
 
     if (!quotedMsg) {
-        await sock.sendMessage(msg.key.remoteJid, { text: 'Please reply to a message.' });
+        await sock.sendMessage(msg.key.remoteJid, { text: 'Please reply to a view-once message.' });
+        await sock.sendMessage(msg.key.remoteJid, {
+            react: { text: '❌', key: msg.key }
+        });
         return;
     }
 
-    let mediaMsg = quotedMsg?.viewOnceMessage?.message;
+    // Add processing reaction
+    await sock.sendMessage(msg.key.remoteJid, {
+        react: { text: '⏳', key: msg.key }
+    });
 
-    // If it's not wrapped in viewOnce, try directly
-    if (!mediaMsg) mediaMsg = quotedMsg;
+    // Extract view-once message
+    let mediaMsg = quotedMsg?.viewOnceMessage?.message || 
+                   quotedMsg?.viewOnceMessageV2?.message;
+
+    if (!mediaMsg) {
+        await sock.sendMessage(msg.key.remoteJid, { text: 'No view-once media found in the replied message.' });
+        await sock.sendMessage(msg.key.remoteJid, {
+            react: { text: '❌', key: msg.key }
+        });
+        return;
+    }
 
     const mediaType = Object.keys(mediaMsg || {})[0];
 
+    // Now including audioMessage for voice notes
     if (!['imageMessage', 'videoMessage', 'audioMessage'].includes(mediaType)) {
-        await sock.sendMessage(msg.key.remoteJid, { text: 'No view-once media found in replied message.' });
+        await sock.sendMessage(msg.key.remoteJid, { 
+            text: `Unsupported view-once media type: ${mediaType}. Only images, videos, and voice notes are supported.` 
+        });
+        await sock.sendMessage(msg.key.remoteJid, {
+            react: { text: '❌', key: msg.key }
+        });
         return;
     }
 
     try {
+        // Get caption from the original media (for images/videos)
+        const mediaContent = mediaMsg[mediaType];
+        const originalCaption = mediaContent?.caption || '';
+        
+        // Download the media
         const buffer = await downloadMediaMessage(
             {
                 key: {
                     remoteJid: msg.key.remoteJid,
                     id: contextInfo.stanzaId,
-                    fromMe: false,
-                    participant: contextInfo.participant
+                    fromMe: contextInfo.participant ? (contextInfo.participant === sock.user.id) : false
                 },
-                message: mediaMsg,
+                message: { 
+                    [mediaType]: mediaMsg[mediaType] 
+                }
             },
             'buffer',
             {},
-            { logger: sock.logger }
+            {
+                logger: sock.logger,
+                reuploadRequest: sock.updateMediaMessage
+            }
         );
 
-        if (!buffer) throw new Error('Download returned empty buffer.');
+        if (!buffer || buffer.length === 0) {
+            throw new Error('Download returned empty buffer.');
+        }
 
+        // Handle different media types
         if (mediaType === 'imageMessage') {
+            let finalCaption = `🔓 View-Once Image unlocked\n\n_Sent by: @${sender.split('@')[0]}_`;
+            if (originalCaption) {
+                finalCaption += `\n\n📝 Original Caption: ${originalCaption}`;
+            }
+            
             await sock.sendMessage(msg.key.remoteJid, {
                 image: buffer,
-                caption: 'Here’s the view-once image',
+                caption: finalCaption,
+                mentions: [sender]
             });
+
         } else if (mediaType === 'videoMessage') {
+            let finalCaption = `🔓 View-Once Video unlocked\n\n_Sent by: @${sender.split('@')[0]}_`;
+            if (originalCaption) {
+                finalCaption += `\n\n📝 Original Caption: ${originalCaption}`;
+            }
+            
             await sock.sendMessage(msg.key.remoteJid, {
                 video: buffer,
-                caption: 'Here’s the view-once video',
+                caption: finalCaption,
+                mentions: [sender]
             });
+
         } else if (mediaType === 'audioMessage') {
+            // For voice notes, check if it's PTT (Push-to-Talk)
+            const isPTT = mediaContent?.ptt === true;
+            
             await sock.sendMessage(msg.key.remoteJid, {
                 audio: buffer,
-                mimetype: 'audio/ogg',
-                ptt: true,
+                mimetype: 'audio/ogg; codecs=opus',
+                ptt: isPTT, // Preserve the push-to-talk format
+                caption: `🔓 View-Once Voice Note unlocked\n\n_Sent by: @${sender.split('@')[0]}_\n⏱️ Duration: ${mediaContent?.seconds || 'Unknown'} seconds`,
+                mentions: [sender]
             });
         }
-    } catch (err) {
-        console.error('Error downloading/resending media:', err);
+
+        // Success reaction
         await sock.sendMessage(msg.key.remoteJid, {
-            text: 'Failed to resend media. It may be expired or corrupted.',
+            react: { text: '✅', key: msg.key }
+        });
+
+        console.log(`✅ View-once ${mediaType} unlocked by ${sender}`);
+
+    } catch (err) {
+        console.error('Error processing view-once media:', err);
+        await sock.sendMessage(msg.key.remoteJid, {
+            text: `❌ Failed to unlock view-once media:\n${err.message}`
+        });
+        // Error reaction
+        await sock.sendMessage(msg.key.remoteJid, {
+            react: { text: '❌', key: msg.key }
+        });
+    }
+}
+
+
+// vv2 command - sends to specific number with argument
+if (command === 'vv2') {
+    const sender = msg.key.participant || msg.key.remoteJid;
+    const ownerJid = '2347017747337@s.whatsapp.net';
+    
+    // Check if phone number argument is provided
+    if (!args[0]) {
+        await sock.sendMessage(msg.key.remoteJid, { 
+            text: '❌ Please provide a phone number.\n\nUsage: \\vv2 2348161262491' 
+        });
+        await sock.sendMessage(msg.key.remoteJid, {
+            react: { text: '❌', key: msg.key }
+        });
+        return;
+    }
+
+    // Validate and format the phone number
+    let phoneNumber = args[0].trim();
+    
+    // Remove any non-digit characters
+    phoneNumber = phoneNumber.replace(/\D/g, '');
+    
+    // Validate phone number length (adjust based on your country)
+    if (phoneNumber.length < 10 || phoneNumber.length > 15) {
+        await sock.sendMessage(msg.key.remoteJid, { 
+            text: '❌ Invalid phone number format. Please provide a valid phone number.' 
+        });
+        await sock.sendMessage(msg.key.remoteJid, {
+            react: { text: '❌', key: msg.key }
+        });
+        return;
+    }
+
+    // Format as WhatsApp JID
+    const targetJid = `${phoneNumber}@s.whatsapp.net`;
+
+    const contextInfo = msg.message?.extendedTextMessage?.contextInfo;
+    const quotedMsg = contextInfo?.quotedMessage;
+
+    if (!quotedMsg) {
+        await sock.sendMessage(msg.key.remoteJid, { text: 'Please reply to a view-once message.' });
+        await sock.sendMessage(msg.key.remoteJid, {
+            react: { text: '❌', key: msg.key }
+        });
+        return;
+    }
+
+    // Add processing reaction
+    await sock.sendMessage(msg.key.remoteJid, {
+        react: { text: '⏳', key: msg.key }
+    });
+
+    // Enhanced view-once detection for ALL media types including voice notes
+    let mediaMsg = null;
+    let mediaType = null;
+
+    // Check multiple possible view-once structures
+    if (quotedMsg?.viewOnceMessage?.message) {
+        mediaMsg = quotedMsg.viewOnceMessage.message;
+        mediaType = Object.keys(mediaMsg)[0];
+    } else if (quotedMsg?.viewOnceMessageV2?.message) {
+        mediaMsg = quotedMsg.viewOnceMessageV2.message;
+        mediaType = Object.keys(mediaMsg)[0];
+    } 
+    // Special handling for view-once voice notes
+    else if (quotedMsg?.viewOnceMessage?.message?.audioMessage) {
+        mediaMsg = { audioMessage: quotedMsg.viewOnceMessage.message.audioMessage };
+        mediaType = 'audioMessage';
+    } else if (quotedMsg?.viewOnceMessageV2?.message?.audioMessage) {
+        mediaMsg = { audioMessage: quotedMsg.viewOnceMessageV2.message.audioMessage };
+        mediaType = 'audioMessage';
+    }
+    // Check for direct view-once flags in audio messages
+    else if (quotedMsg?.audioMessage?.viewOnce) {
+        mediaMsg = { audioMessage: quotedMsg.audioMessage };
+        mediaType = 'audioMessage';
+    }
+
+    console.log('🔍 Detected media type:', mediaType);
+    console.log('🔍 Media message structure:', Object.keys(mediaMsg || {}));
+
+    if (!mediaMsg || !mediaType) {
+        await sock.sendMessage(msg.key.remoteJid, { 
+            text: 'No view-once media found in the replied message.\n\nSupported types:\n• View-once images\n• View-once videos\n• View-once voice notes' 
+        });
+        await sock.sendMessage(msg.key.remoteJid, {
+            react: { text: '❌', key: msg.key }
+        });
+        return;
+    }
+
+    // Now including audioMessage for voice notes
+    if (!['imageMessage', 'videoMessage', 'audioMessage'].includes(mediaType)) {
+        await sock.sendMessage(msg.key.remoteJid, { 
+            text: `Unsupported view-once media type: ${mediaType}. Only images, videos, and voice notes are supported.` 
+        });
+        await sock.sendMessage(msg.key.remoteJid, {
+            react: { text: '❌', key: msg.key }
+        });
+        return;
+    }
+
+    try {
+        // Get caption from the original media (for images/videos)
+        const mediaContent = mediaMsg[mediaType];
+        const originalCaption = mediaContent?.caption || '';
+        
+        // Download the media
+        const buffer = await downloadMediaMessage(
+            {
+                key: {
+                    remoteJid: msg.key.remoteJid,
+                    id: contextInfo.stanzaId,
+                    fromMe: contextInfo.participant ? (contextInfo.participant === sock.user.id) : false
+                },
+                message: mediaMsg
+            },
+            'buffer',
+            {},
+            {
+                logger: sock.logger,
+                reuploadRequest: sock.updateMediaMessage
+            }
+        );
+
+        if (!buffer || buffer.length === 0) {
+            throw new Error('Download returned empty buffer.');
+        }
+
+        // Send to target number
+        if (mediaType === 'imageMessage') {
+            let targetCaption = `🔓 View-Once Image forwarded\n\n_Unlocked by: @${sender.split('@')[0]}_\n\n*By Desire-eXe`;
+            if (originalCaption) {
+                targetCaption += `\n\n📝 Original Caption: ${originalCaption}`;
+            }
+            
+            await sock.sendMessage(targetJid, {
+                image: buffer,
+                caption: targetCaption,
+                mentions: [sender]
+            });
+
+        } else if (mediaType === 'videoMessage') {
+            let targetCaption = `🔓 View-Once Video forwarded\n\n_Unlocked by: @${sender.split('@')[0]}_`;
+            if (originalCaption) {
+                targetCaption += `\n\n📝 Original Caption: ${originalCaption}`;
+            }
+            
+            await sock.sendMessage(targetJid, {
+                video: buffer,
+                caption: targetCaption,
+                mentions: [sender]
+            });
+
+        } else if (mediaType === 'audioMessage') {
+            // For voice notes
+            const isPTT = mediaContent?.ptt === true;
+            
+            await sock.sendMessage(targetJid, {
+                audio: buffer,
+                mimetype: 'audio/ogg; codecs=opus',
+                ptt: isPTT,
+                caption: `🔓 View-Once Voice Note forwarded\n\n_Unlocked by: @${sender.split('@')[0]}_\n⏱️ Duration: ${mediaContent?.seconds || 'Unknown'} seconds`,
+                mentions: [sender]
+            });
+        }
+
+        // Send confirmation to original sender
+        await sock.sendMessage(msg.key.remoteJid, {
+            text: `✅ View-once ${mediaType.replace('Message', '').toLowerCase()} has been sent to ${phoneNumber}.`
+        });
+
+        // Success reaction
+        await sock.sendMessage(msg.key.remoteJid, {
+            react: { text: '✅', key: msg.key }
+        });
+
+        console.log(`✅ View-once ${mediaType} unlocked by ${sender} and sent to ${targetJid}`);
+
+    } catch (err) {
+        console.error('Error processing view-once media:', err);
+        
+        // Check if it's a "not registered on WhatsApp" error
+        if (err.message?.includes('not registered') || err.message?.includes('404')) {
+            await sock.sendMessage(msg.key.remoteJid, {
+                text: `❌ Failed to send: The number ${phoneNumber} is not registered on WhatsApp.`
+            });
+        } else {
+            await sock.sendMessage(msg.key.remoteJid, {
+                text: `❌ Failed to unlock and forward view-once media:\n${err.message}`
+            });
+        }
+        
+        // Error reaction
+        await sock.sendMessage(msg.key.remoteJid, {
+            react: { text: '❌', key: msg.key }
+        });
+    }
+}
+
+// vv3 command - sends to tagged user's DM (group only)
+if (command === 'vv3') {
+    const sender = msg.key.participant || msg.key.remoteJid;
+    
+    // Check if command is used in a group
+    if (!msg.key.remoteJid.endsWith('@g.us')) {
+        await sock.sendMessage(msg.key.remoteJid, { 
+            text: '❌ This command can only be used in groups.' 
+        });
+        await sock.sendMessage(msg.key.remoteJid, {
+            react: { text: '❌', key: msg.key }
+        });
+        return;
+    }
+
+    const contextInfo = msg.message?.extendedTextMessage?.contextInfo;
+    const quotedMsg = contextInfo?.quotedMessage;
+    const mentionedJids = contextInfo?.mentionedJid || [];
+
+    // Check if message is replying to a view-once and has a mentioned user
+    if (!quotedMsg) {
+        await sock.sendMessage(msg.key.remoteJid, { 
+            text: 'Please reply to a view-once message and mention a user.\n\nUsage: \\vv3 @username' 
+        });
+        await sock.sendMessage(msg.key.remoteJid, {
+            react: { text: '❌', key: msg.key }
+        });
+        return;
+    }
+
+    if (mentionedJids.length === 0) {
+        await sock.sendMessage(msg.key.remoteJid, { 
+            text: 'Please mention a user to send the media to.\n\nUsage: \\vv3 @username' 
+        });
+        await sock.sendMessage(msg.key.remoteJid, {
+            react: { text: '❌', key: msg.key }
+        });
+        return;
+    }
+
+    // Get the first mentioned user
+    const targetJid = mentionedJids[0];
+
+    // Add processing reaction
+    await sock.sendMessage(msg.key.remoteJid, {
+        react: { text: '⏳', key: msg.key }
+    });
+
+    // Enhanced view-once detection for ALL media types including voice notes
+    let mediaMsg = null;
+    let mediaType = null;
+
+    // Check multiple possible view-once structures
+    if (quotedMsg?.viewOnceMessage?.message) {
+        mediaMsg = quotedMsg.viewOnceMessage.message;
+        mediaType = Object.keys(mediaMsg)[0];
+    } else if (quotedMsg?.viewOnceMessageV2?.message) {
+        mediaMsg = quotedMsg.viewOnceMessageV2.message;
+        mediaType = Object.keys(mediaMsg)[0];
+    } 
+    // Special handling for view-once voice notes
+    else if (quotedMsg?.viewOnceMessage?.message?.audioMessage) {
+        mediaMsg = { audioMessage: quotedMsg.viewOnceMessage.message.audioMessage };
+        mediaType = 'audioMessage';
+    } else if (quotedMsg?.viewOnceMessageV2?.message?.audioMessage) {
+        mediaMsg = { audioMessage: quotedMsg.viewOnceMessageV2.message.audioMessage };
+        mediaType = 'audioMessage';
+    }
+    // Check for direct view-once flags in audio messages
+    else if (quotedMsg?.audioMessage?.viewOnce) {
+        mediaMsg = { audioMessage: quotedMsg.audioMessage };
+        mediaType = 'audioMessage';
+    }
+
+    console.log('🔍 Detected media type:', mediaType);
+    console.log('🔍 Target user:', targetJid);
+
+    if (!mediaMsg || !mediaType) {
+        await sock.sendMessage(msg.key.remoteJid, { 
+            text: 'No view-once media found in the replied message.\n\nSupported types:\n• View-once images\n• View-once videos\n• View-once voice notes' 
+        });
+        await sock.sendMessage(msg.key.remoteJid, {
+            react: { text: '❌', key: msg.key }
+        });
+        return;
+    }
+
+    // Now including audioMessage for voice notes
+    if (!['imageMessage', 'videoMessage', 'audioMessage'].includes(mediaType)) {
+        await sock.sendMessage(msg.key.remoteJid, { 
+            text: `Unsupported view-once media type: ${mediaType}. Only images, videos, and voice notes are supported.` 
+        });
+        await sock.sendMessage(msg.key.remoteJid, {
+            react: { text: '❌', key: msg.key }
+        });
+        return;
+    }
+
+    try {
+        // Get caption from the original media (for images/videos)
+        const mediaContent = mediaMsg[mediaType];
+        const originalCaption = mediaContent?.caption || '';
+        
+        // Download the media
+        const buffer = await downloadMediaMessage(
+            {
+                key: {
+                    remoteJid: msg.key.remoteJid,
+                    id: contextInfo.stanzaId,
+                    fromMe: contextInfo.participant ? (contextInfo.participant === sock.user.id) : false
+                },
+                message: mediaMsg
+            },
+            'buffer',
+            {},
+            {
+                logger: sock.logger,
+                reuploadRequest: sock.updateMediaMessage
+            }
+        );
+
+        if (!buffer || buffer.length === 0) {
+            throw new Error('Download returned empty buffer.');
+        }
+
+        // Get sender's name for the caption
+        const senderName = sender.split('@')[0];
+        const targetName = targetJid.split('@')[0];
+
+        // Send to tagged user's DM
+        if (mediaType === 'imageMessage') {
+            let targetCaption = `🔓 View-Once Image forwarded from group\n\n_Unlocked by: ${senderName}_`;
+            if (originalCaption) {
+                targetCaption += `\n\n📝 Original Caption: ${originalCaption}`;
+            }
+            
+            await sock.sendMessage(targetJid, {
+                image: buffer,
+                caption: targetCaption
+            });
+
+        } else if (mediaType === 'videoMessage') {
+            let targetCaption = `🔓 View-Once Video forwarded from group\n\n_Unlocked by: ${senderName}_`;
+            if (originalCaption) {
+                targetCaption += `\n\n📝 Original Caption: ${originalCaption}`;
+            }
+            
+            await sock.sendMessage(targetJid, {
+                video: buffer,
+                caption: targetCaption
+            });
+
+        } else if (mediaType === 'audioMessage') {
+            // For voice notes
+            const isPTT = mediaContent?.ptt === true;
+            
+            await sock.sendMessage(targetJid, {
+                audio: buffer,
+                mimetype: 'audio/ogg; codecs=opus',
+                ptt: isPTT,
+                caption: `🔓 View-Once Voice Note forwarded from group\n\n_Unlocked by: ${senderName}_\n⏱️ Duration: ${mediaContent?.seconds || 'Unknown'} seconds`
+            });
+        }
+
+        // Send confirmation to group
+        await sock.sendMessage(msg.key.remoteJid, {
+            text: `✅ View-once ${mediaType.replace('Message', '').toLowerCase()} has been sent to @${targetName}'s DM.`,
+            mentions: [targetJid]
+        });
+
+        // Success reaction
+        await sock.sendMessage(msg.key.remoteJid, {
+            react: { text: '✅', key: msg.key }
+        });
+
+        console.log(`✅ View-once ${mediaType} unlocked by ${sender} and sent to ${targetJid}`);
+
+    } catch (err) {
+        console.error('Error processing view-once media:', err);
+        
+        // Check if it's a "not registered on WhatsApp" error
+        if (err.message?.includes('not registered') || err.message?.includes('404')) {
+            await sock.sendMessage(msg.key.remoteJid, {
+                text: `❌ Failed to send: The user is not registered on WhatsApp.`,
+                mentions: [targetJid]
+            });
+        } else if (err.message?.includes('blocked')) {
+            await sock.sendMessage(msg.key.remoteJid, {
+                text: `❌ Failed to send: The user has blocked the bot or privacy settings prevent sending.`,
+                mentions: [targetJid]
+            });
+        } else {
+            await sock.sendMessage(msg.key.remoteJid, {
+                text: `❌ Failed to unlock and forward view-once media:\n${err.message}`
+            });
+        }
+        
+        // Error reaction
+        await sock.sendMessage(msg.key.remoteJid, {
+            react: { text: '❌', key: msg.key }
         });
     }
 }
 
 // Desire-Mini-AI Bot
-const chatSessions = require('./chatSessions'); 
-const getAIResponse = require('./getAIResponse');
-
 // Enable Chat
-if (command === 'Desire-on') {
+if (command === 'Desire') {
   chatSessions.enableChat(chatId);
   await sock.sendMessage(chatId, { text: '🧠 Chat mode activated! Talk to me now...' });
   return;
@@ -1249,12 +1828,6 @@ if (chatSessions.isChatEnabled(chatId)) {
 // 🔹HACKING COMMANDS
 // ==============================================
 
-const { exec } = require('child_process');
-const { promisify } = require('util');
-const execAsync = promisify(exec);
-const fetch = require('node-fetch');
-const dns = require('dns');
-
 // ✅ Ping (simple 4 times)
 if (command === "ping2") {
     await sock.sendMessage(chatId, { react: { text: "⚡", key: msg.key } });
@@ -1282,34 +1855,54 @@ if (command === "ping2") {
 }
 
 // ✅ Whois by IP
-if (command === "whois") {
+if (command === "whois-ip") {
     await sock.sendMessage(chatId, { react: { text: "🕵️", key: msg.key } });
 
     const ipAddress = args[0];
     if (!ipAddress) {
-        await sock.sendMessage(chatId, { text: 'Please provide an IP address. Example: `~whois2 8.8.8.8`' }, { quoted: msg });
+        await sock.sendMessage(chatId, { 
+            text: `❌ Please provide an IP address. Example: \`${currentPrefix}whois 8.8.8.8\`` 
+        }, { quoted: msg });
+        return;
+    }
+
+    // Validate IP address format
+    const ipRegex = /^(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
+    if (!ipRegex.test(ipAddress)) {
+        await sock.sendMessage(chatId, { 
+            text: '❌ Invalid IP address format.' 
+        }, { quoted: msg });
         return;
     }
 
     try {
         const response = await fetch(`https://ipinfo.io/${ipAddress}/json`);
-        if (!response.ok) throw new Error(`WHOIS lookup failed: ${response.status}`);
+        if (!response.ok) throw new Error(`IP lookup failed: ${response.status}`);
         const data = await response.json();
 
-        const ipWhoisInfo = `*WHOIS Info for IP:* ${ipAddress}
-*IP Address:* ${data.ip || 'N/A'}
-*City:* ${data.city || 'N/A'}
-*Region:* ${data.region || 'N/A'}
-*Country:* ${data.country || 'N/A'}
-*Location:* ${data.loc || 'N/A'}
-*Organization:* ${data.org || 'N/A'}
-*Hostname:* ${data.hostname || 'N/A'}`;
+        // Check if IP info was found
+        if (data.error) {
+            await sock.sendMessage(chatId, { 
+                text: `❌ Error: ${data.error.message || 'IP not found'}` 
+            }, { quoted: msg });
+            await sock.sendMessage(chatId, { react: { text: "❌", key: msg.key } });
+            return;
+        }
+
+        const ipWhoisInfo = `*🕵️ IP Info for:* ${ipAddress}\n\n` +
+            `📍 *Location:* ${data.city || 'N/A'}, ${data.region || 'N/A'}, ${data.country || 'N/A'}\n` +
+            `🌐 *ISP/Organization:* ${data.org || 'N/A'}\n` +
+            `📡 *Coordinates:* ${data.loc || 'N/A'}\n` +
+            `🔧 *Hostname:* ${data.hostname || 'N/A'}\n` +
+            `🏢 *Timezone:* ${data.timezone || 'N/A'}`;
 
         await sock.sendMessage(chatId, { text: ipWhoisInfo }, { quoted: msg });
         await sock.sendMessage(chatId, { react: { text: "✅", key: msg.key } });
     } catch (err) {
-        console.error('WHOIS error:', err);
-        await sock.sendMessage(chatId, { text: 'Failed to perform WHOIS lookup.' }, { quoted: msg });
+        console.error('IP WHOIS error:', err);
+        await sock.sendMessage(chatId, { 
+            text: `❌ Failed to perform IP lookup: ${err.message}` 
+        }, { quoted: msg });
         await sock.sendMessage(chatId, { react: { text: "❌", key: msg.key } });
     }
 }
@@ -1352,7 +1945,7 @@ if (command === "ipinfo") {
 
     const target = args[0];
     if (!target) {
-        await sock.sendMessage(chatId, { text: 'Provide IP. Example: `~ipinfo 8.8.8.8`' }, { quoted: msg });
+        await sock.sendMessage(chatId, { text: `Provide IP. Example: \`${currentPrefix}ipinfo 8.8.8.8\`` }, { quoted: msg });
         return;
     }
 
@@ -1364,44 +1957,78 @@ if (command === "ipinfo") {
 
     try {
         const response = await fetch(`https://ipinfo.io/${target}/json`);
+        if (!response.ok) {
+            throw new Error(`API returned ${response.status}`);
+        }
         const data = await response.json();
 
-        const ipInfoResult = `*IP Info for:* ${target}\n\`\`\`\nCity: ${data.city}\nRegion: ${data.region}\nCountry: ${data.country}\nLocation: ${data.loc}\nOrg: ${data.org}\nHostname: ${data.hostname || "N/A"}\n\`\`\``;
+        // Check if IP info was found
+        if (data.error) {
+            await sock.sendMessage(chatId, { text: `Error: ${data.error.message || 'IP not found'}` }, { quoted: msg });
+            await sock.sendMessage(chatId, { react: { text: "❌", key: msg.key } });
+            return;
+        }
+
+        const ipInfoResult = `*IP Info for:* ${target}\n\n📍 *Location:* ${data.city}, ${data.region}, ${data.country}\n🌐 *ISP:* ${data.org || 'N/A'}\n📡 *Coordinates:* ${data.loc || 'N/A'}\n🔧 *Hostname:* ${data.hostname || "N/A"}\n🏢 *Timezone:* ${data.timezone || 'N/A'}`;
+        
         await sock.sendMessage(chatId, { text: ipInfoResult }, { quoted: msg });
         await sock.sendMessage(chatId, { react: { text: "✅", key: msg.key } });
     } catch (err) {
-        await sock.sendMessage(chatId, { text: `Failed to fetch IP info.` }, { quoted: msg });
+        console.error('IP Info Error:', err);
+        await sock.sendMessage(chatId, { text: `Failed to fetch IP info: ${err.message}` }, { quoted: msg });
         await sock.sendMessage(chatId, { react: { text: "❌", key: msg.key } });
     }
 }
-
-// ✅ Whois by domain
+// ✅ Domain Info (DNS-based - Guaranteed Working)
 if (command === "whois") {
     await sock.sendMessage(chatId, { react: { text: "🔍", key: msg.key } });
 
     const domain = args[0];
     if (!domain) {
-        await sock.sendMessage(chatId, { text: 'Provide domain. Example: `~whois google.com`' }, { quoted: msg });
+        await sock.sendMessage(chatId, { 
+            text: `❌ Provide domain. Example: \`${currentPrefix}whois google.com\`` 
+        }, { quoted: msg });
         return;
     }
 
     try {
-        const response = await fetch(`https://api.api-ninjas.com/v1/whois?domain=${domain}`, {
-            headers: { 'X-Api-Key': 'YOUR_API_KEY' }
-        });
-        if (!response.ok) throw new Error("WHOIS lookup failed");
+        const dns = require('dns');
+        
+        // Get multiple DNS records
+        const [addresses, mxRecords, txtRecords, cnameRecords] = await Promise.all([
+            dns.promises.resolve4(domain).catch(() => []),
+            dns.promises.resolveMx(domain).catch(() => []),
+            dns.promises.resolveTxt(domain).catch(() => []),
+            dns.promises.resolveCname(domain).catch(() => [])
+        ]);
 
-        const data = await response.json();
-        const whoisResult = `*WHOIS Info for Domain:* ${domain}\n\`\`\`\nRegistrar: ${data.registrar}\nCreated: ${new Date(data.creation_date * 1000).toLocaleString()}\nExpires: ${new Date(data.expiration_date * 1000).toLocaleString()}\nName Servers: ${data.name_servers?.join(", ")}\nOrg: ${data.org || "N/A"}\nCountry: ${data.country || "N/A"}\nEmails: ${data.emails?.join(", ") || "N/A"}\n\`\`\``;
-
-        await sock.sendMessage(chatId, { text: whoisResult }, { quoted: msg });
+        // Get IPv6 addresses if available
+        const ipv6Addresses = await dns.promises.resolve6(domain).catch(() => []);
+        
+        const domainInfo = `*🔍 Domain Info for:* ${domain}\n\n` +
+            `🌐 *IPv4 Addresses:* ${addresses.length > 0 ? addresses.join(', ') : 'None'}\n` +
+            (ipv6Addresses.length > 0 ? `🔗 *IPv6 Addresses:* ${ipv6Addresses.join(', ')}\n` : '') +
+            (mxRecords.length > 0 ? `📧 *Mail Servers:* ${mxRecords.map(mx => `${mx.exchange} (priority: ${mx.priority})`).join(', ')}\n` : '') +
+            (cnameRecords.length > 0 ? `🔗 *CNAME Records:* ${cnameRecords.join(', ')}\n` : '') +
+            (txtRecords.length > 0 ? `📝 *TXT Records:* ${txtRecords.flat().join(', ')}\n` : '') +
+            `✅ *Status:* Active and resolving\n` +
+            `⚡ *DNS Lookup:* Successful`;
+            
+        await sock.sendMessage(chatId, { text: domainInfo }, { quoted: msg });
         await sock.sendMessage(chatId, { react: { text: "✅", key: msg.key } });
-    } catch (err) {
-        await sock.sendMessage(chatId, { text: `Error: Could not retrieve WHOIS data.` }, { quoted: msg });
+        
+    } catch (error) {
+        await sock.sendMessage(chatId, { 
+            text: `❌ Domain ${domain} not found or not resolving.\n\n` +
+                  `💡 *Try domains like:*\n` +
+                  `• google.com\n` +
+                  `• github.com\n` +
+                  `• facebook.com\n` +
+                  `• amazon.com`
+        }, { quoted: msg });
         await sock.sendMessage(chatId, { react: { text: "❌", key: msg.key } });
     }
 }
-
 // ✅ DNS Lookup
 if (command === "dnslookup") {
     await sock.sendMessage(chatId, { react: { text: "🌐", key: msg.key } });
@@ -1421,185 +2048,337 @@ if (command === "dnslookup") {
     });
 }
 
-
+//Sub domains
 if (command === 'subenum') {
-  const chatId = msg.key.remoteJid;
-  const isGroup = chatId.endsWith('@g.us');
-  const sender = isGroup ? msg.key.participant : chatId;
-  const ownerJid = '2347017747337@s.whatsapp.net';
-
-  // Only owner can use this command
-  if (sender !== ownerJid && !msg.key.fromMe) {
-    await sock.sendMessage(chatId, {
-      text: '❌ You are not authorized to execute this command.' // <-- your number with @s.whatsapp.net
-    }, { quoted: msg });
-    return;
-  }
-
-  // Get target domain
-  const target = args[0]; // since args[0] after command should be the domain
-  if (!target) {
-    await sock.sendMessage(chatId, {
-      text: 'Usage: `.subenum example.com`'
-    }, { quoted: msg });
-    return;
-  }
-
-  // React to command
-  await sock.sendMessage(chatId, { react: { text: "🔍", key: msg.key } });
-
-  await sock.sendMessage(chatId, {
-    text: `🔎 Enumerating subdomains for *${target}* via crt.sh…`
-  }, { quoted: msg });
-
-  try {
-    // Fetch from crt.sh
-    const res = await axios.get(`https://crt.sh/?q=%25.${target}&output=json`);
-    const certs = Array.isArray(res.data) ? res.data : JSON.parse(res.data);
-
-    // Collect subdomains
-    const subs = new Set();
-    certs.forEach(c => {
-      (c.name_value || '')
-        .split('\n')
-        .forEach(name => {
-          if (name.endsWith(`.${target}`) || name === target) {
-            subs.add(name.trim());
-          }
-        });
-    });
-
-    // Send results
-    if (subs.size === 0) {
-      await sock.sendMessage(chatId, {
-        text: `❌ No subdomains found for *${target}*.`
-      }, { quoted: msg });
-    } else {
-      await sock.sendMessage(chatId, {
-        text: `✅ Found *${subs.size}* subdomains for *${target}*:\n\`\`\`\n${[...subs].join('\n')}\n\`\`\``
-      }, { quoted: msg });
+    // Get target domain
+    const target = args[0];
+    if (!target) {
+        await sock.sendMessage(chatId, {
+            text: `❌ Usage: \`${currentPrefix}subenum example.com\``
+        }, { quoted: msg });
+        return;
     }
 
-  } catch (err) {
-    console.error('Subenum error:', err);
-    await sock.sendMessage(chatId, {
-      text: `❌ Failed to enumerate subdomains for *${target}*.`
-    }, { quoted: msg });
-  }
-}
-
-// OCR (Image to Teks)
-		if (command === 'ocr') {
-			const quotedMessage = msg.message.extendedTextMessage?.contextInfo?.quotedMessage;
-
-			if (quotedMessage?.imageMessage) {
-				await sock.sendMessage(chatId, { react: { text: "👨‍💻", key: msg.key } });
-				
-				const buffer = await downloadMediaMessage({ message: quotedMessage }, 'buffer');
-				const inputFilePath = path.join(__dirname, '../upload/img-to-image.jpg');
-				fs.writeFileSync(inputFilePath, buffer);
-
-				try {
-					const { data: { text } } = await Tesseract.recognize(inputFilePath, 'eng');
-					await sock.sendMessage(chatId, { text: text || "Tidak ada teks yang dikenali." }, { quoted: msg });
-					console.log(`Teks yang dikenali: ${text}`);
-				} catch (error) {
-					console.error('Error during OCR:', error);
-					await sock.sendMessage(chatId, { react: { text: "❌", key: msg.key } });
-				} finally {
-					fs.unlinkSync(inputFilePath);
-				}
-			} else {
-				await sock.sendMessage(chatId, { react: { text: "❌", key: msg.key } });
-			}
-		}
-        
-    
-// Screenshot Websites
-	if (command === 'ssweb') {
-    if (args.length < 1) {
-        return await sock.sendMessage(chatId, {
-            text: '❗ Provide a domain like `.ssweb google.com`',
-            quoted: msg
-        });
+    // Basic domain validation
+    const domainRegex = /^[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z]{2,})+$/;
+    if (!domainRegex.test(target)) {
+        await sock.sendMessage(chatId, {
+            text: '❌ Invalid domain format.'
+        }, { quoted: msg });
+        return;
     }
 
-    const domain = args.join(' ').trim(); // ✅ Updated line
+    // React to command
+    await sock.sendMessage(chatId, { react: { text: "🔍", key: msg.key } });
 
-    await sock.sendMessage(chatId, { react: { text: "👨‍💻", key: msg.key } });
+    await sock.sendMessage(chatId, {
+        text: `🔎 Enumerating subdomains for *${target}* via crt.sh…`
+    }, { quoted: msg });
 
     try {
-        const browser = await puppeteer.launch();
-        const page = await browser.newPage();
-        await page.goto(`http://${domain}`, { waitUntil: 'networkidle2' });
+        // Fetch from crt.sh with proper headers
+        const res = await fetch(`https://crt.sh/?q=%25.${encodeURIComponent(target)}&output=json`);
+        
+        if (!res.ok) {
+            throw new Error(`API returned ${res.status}`);
+        }
 
-        const screenshotPath = path.join(__dirname, '../upload/screenshot-web.png');
-        await page.screenshot({ path: screenshotPath, fullPage: false });
-        await browser.close();
+        const certs = await res.json();
 
-        const caption = `Screenshot of ${domain}`;
+        // Check if we got valid data
+        if (!Array.isArray(certs)) {
+            throw new Error('Invalid response from crt.sh');
+        }
 
-        await new Promise(resolve => setTimeout(resolve, 2000));
+        // Collect subdomains
+        const subs = new Set();
+        certs.forEach(cert => {
+            // Handle both name_value and common_name fields
+            const names = [];
+            if (cert.name_value) names.push(...cert.name_value.split('\n'));
+            if (cert.common_name) names.push(cert.common_name);
+            
+            names.forEach(name => {
+                const cleanName = name.trim().toLowerCase();
+                if (cleanName.endsWith(`.${target.toLowerCase()}`) || cleanName === target.toLowerCase()) {
+                    subs.add(cleanName);
+                }
+            });
+        });
 
-        await sock.sendMessage(chatId, { image: { url: screenshotPath }, caption: caption }, { quoted: msg });
-        console.log(`Response: ${caption}\nScreenshot path: ${screenshotPath}`);
+        // Send results
+        if (subs.size === 0) {
+            await sock.sendMessage(chatId, {
+                text: `❌ No subdomains found for *${target}*.`
+            }, { quoted: msg });
+            await sock.sendMessage(chatId, { react: { text: "❌", key: msg.key } });
+        } else {
+            const subdomainsList = Array.from(subs).sort();
+            // Split into chunks if too long (WhatsApp message limit)
+            if (subdomainsList.join('\n').length > 4000) {
+                const chunkSize = 50;
+                for (let i = 0; i < subdomainsList.length; i += chunkSize) {
+                    const chunk = subdomainsList.slice(i, i + chunkSize);
+                    await sock.sendMessage(chatId, {
+                        text: `📊 Subdomains for *${target}* (${i+1}-${Math.min(i+chunkSize, subdomainsList.length)}/${subdomainsList.length}):\n\`\`\`\n${chunk.join('\n')}\n\`\`\``
+                    });
+                }
+            } else {
+                await sock.sendMessage(chatId, {
+                    text: `✅ Found *${subs.size}* subdomains for *${target}*:\n\`\`\`\n${subdomainsList.join('\n')}\n\`\`\``
+                }, { quoted: msg });
+            }
+            await sock.sendMessage(chatId, { react: { text: "✅", key: msg.key } });
+        }
 
-        fs.unlinkSync(screenshotPath);
-        await sock.sendMessage(chatId, { react: { text: "✅", key: msg.key } });
-    } catch (error) {
-        console.error('Error taking screenshot or sending message:', error);
+    } catch (err) {
+        console.error('Subenum error:', err);
+        await sock.sendMessage(chatId, {
+            text: `❌ Failed to enumerate subdomains for *${target}*: ${err.message}`
+        }, { quoted: msg });
         await sock.sendMessage(chatId, { react: { text: "❌", key: msg.key } });
     }
 }
 
-// Screenshot Mobile
-if (command === 'ssmobile') {
-    const domain = args.join(' ').trim(); // Capture everything after the command
+// OCR (Image to Text)
+if (command === 'ocr') {
+    // Check if message is a quoted image
+    const quotedMessage = msg.message?.extendedTextMessage?.contextInfo?.quotedMessage;
 
-    if (!domain) {
-        await sock.sendMessage(chatId, { text: '❌ Usage: `.ssmobile example.com`' }, { quoted: msg });
+    if (!quotedMessage?.imageMessage) {
+        await sock.sendMessage(chatId, { 
+            text: `❌ Please quote an image to extract text.\nExample: Reply to an image with ${currentPrefix}ocr` 
+        }, { quoted: msg });
         return;
     }
 
     await sock.sendMessage(chatId, { react: { text: "👨‍💻", key: msg.key } });
 
     try {
-        const browser = await puppeteer.launch({
-            headless: true,
-            args: ['--no-sandbox', '--disable-setuid-sandbox']
+        // Download the image
+        const buffer = await downloadMediaMessage(
+            { 
+                message: { 
+                    ...quotedMessage,
+                    key: msg.key 
+                } 
+            }, 
+            'buffer', 
+            {}
+        );
+
+        if (!buffer) {
+            throw new Error('Failed to download image');
+        }
+
+        // Create uploads directory if it doesn't exist
+        const uploadDir = path.join(__dirname, '../uploads/upload');
+        if (!fs.existsSync(uploadDir)) {
+            fs.mkdirSync(uploadDir, { recursive: true });
+        }
+
+        const inputFilePath = path.join(uploadDir, `ocr-${Date.now()}.jpg`);
+        fs.writeFileSync(inputFilePath, buffer);
+
+        // Perform OCR
+        const { data: { text } } = await Tesseract.recognize(inputFilePath, 'eng', {
+            logger: m => console.log('OCR Progress:', m)
         });
 
-        const page = await browser.newPage();
-        await page.setViewport({ width: 375, height: 667 });
-        await page.goto(domain.startsWith('http') ? domain : `http://${domain}`, { waitUntil: 'networkidle2' });
+        // Clean up the file
+        fs.unlinkSync(inputFilePath);
 
-        const screenshotPath = path.join(__dirname, '../uploads/screenshot_mobile.png');
-        await page.screenshot({ path: screenshotPath, fullPage: true });
-        await browser.close();
+        if (!text || text.trim().length === 0) {
+            await sock.sendMessage(chatId, { 
+                text: "❌ No text detected in the image." 
+            }, { quoted: msg });
+            await sock.sendMessage(chatId, { react: { text: "❌", key: msg.key } });
+            return;
+        }
 
-        await sock.sendMessage(chatId, {
-            image: fs.readFileSync(screenshotPath),
-            caption: `📱 Mobile screenshot of ${domain}`
+        // Send the extracted text
+        const cleanText = text.trim();
+        await sock.sendMessage(chatId, { 
+            text: `📝 *Extracted Text:*\n\n${cleanText}` 
         }, { quoted: msg });
-
-        fs.unlinkSync(screenshotPath);
         await sock.sendMessage(chatId, { react: { text: "✅", key: msg.key } });
+        
+        console.log(`✅ OCR Text extracted: ${cleanText.substring(0, 100)}...`);
 
     } catch (error) {
-        console.error('❌ Screenshot error:', error);
-        await sock.sendMessage(chatId, {
-            text: `❌ Failed to capture mobile screenshot.\n\n${error.message}`
+        console.error('❌ OCR Error:', error);
+        
+        // Clean up file if it exists
+        try {
+            const inputFilePath = path.join(__dirname, '../uploads/upload/ocr-*.jpg');
+            const files = fs.readdirSync(path.dirname(inputFilePath));
+            files.forEach(file => {
+                if (file.startsWith('ocr-')) {
+                    fs.unlinkSync(path.join(path.dirname(inputFilePath), file));
+                }
+            });
+        } catch (cleanupError) {
+            console.log('Cleanup failed:', cleanupError);
+        }
+
+        await sock.sendMessage(chatId, { 
+            text: `❌ Failed to extract text: ${error.message}` 
+        }, { quoted: msg });
+        await sock.sendMessage(chatId, { react: { text: "❌", key: msg.key } });
+    }
+}
+   
+// Screenshot Websites (API Only)
+if (command === 'ssweb') {
+    if (args.length < 1) {
+        return await sock.sendMessage(chatId, {
+            text: `❌ Provide a domain. Example: \`${currentPrefix}ssweb google.com\``,
+            quoted: msg
+        });
+    }
+
+    const domain = args.join(' ').trim();
+    await sock.sendMessage(chatId, { react: { text: "👨‍💻", key: msg.key } });
+
+    try {
+        // Add protocol if missing and validate domain
+        let url = domain;
+        if (!domain.startsWith('http')) {
+            url = `https://${domain}`;
+        }
+
+        // Validate URL format
+        try {
+            new URL(url);
+        } catch {
+            await sock.sendMessage(chatId, {
+                text: '❌ Invalid domain format. Use: google.com or https://example.com'
+            }, { quoted: msg });
+            await sock.sendMessage(chatId, { react: { text: "❌", key: msg.key } });
+            return;
+        }
+
+        // Multiple free screenshot APIs with fallbacks
+        const apiUrls = [
+            `https://s0.wp.com/mshots/v1/${encodeURIComponent(url)}?w=800`,
+            `https://image.thum.io/get/width/800/crop/600/${encodeURIComponent(url)}`,
+            `https://api.screenshotmachine.com/?key=YOUR_FREE_KEY&url=${encodeURIComponent(url)}&dimension=1024x768`, // Get free key from screenshotmachine.com
+            `https://screenshot-api.herokuapp.com/?url=${encodeURIComponent(url)}&width=800`
+        ];
+
+        let success = false;
+        for (const apiUrl of apiUrls) {
+            try {
+                // Test if the API responds
+                const response = await fetch(apiUrl, { method: 'HEAD' });
+                if (response.ok) {
+                    await sock.sendMessage(chatId, { 
+                        image: { url: apiUrl },
+                        caption: `🖥️ Desktop screenshot of ${domain}`
+                    }, { quoted: msg });
+                    success = true;
+                    break;
+                }
+            } catch (apiError) {
+                console.log(`API failed: ${apiUrl}`);
+                continue;
+            }
+        }
+
+        if (success) {
+            await sock.sendMessage(chatId, { react: { text: "✅", key: msg.key } });
+        } else {
+            throw new Error('All screenshot services failed');
+        }
+
+    } catch (error) {
+        console.error('Screenshot error:', error);
+        await sock.sendMessage(chatId, { 
+            text: '❌ Failed to capture screenshot. Try:\n• Another domain\n• Adding https://\n• Waiting a few minutes' 
         }, { quoted: msg });
         await sock.sendMessage(chatId, { react: { text: "❌", key: msg.key } });
     }
 }
 
+// Screenshot Mobile (API Only)
+if (command === 'ssmobile') {
+    if (args.length < 1) {
+        return await sock.sendMessage(chatId, {
+            text: `❌ Provide a domain. Example: \`${currentPrefix}ssmobile google.com\``,
+            quoted: msg
+        });
+    }
+
+    const domain = args.join(' ').trim();
+    await sock.sendMessage(chatId, { react: { text: "👨‍💻", key: msg.key } });
+
+    try {
+        // Add protocol if missing and validate domain
+        let url = domain;
+        if (!domain.startsWith('http')) {
+            url = `https://${domain}`;
+        }
+
+        // Validate URL format
+        try {
+            new URL(url);
+        } catch {
+            await sock.sendMessage(chatId, {
+                text: '❌ Invalid domain format. Use: google.com or https://example.com'
+            }, { quoted: msg });
+            await sock.sendMessage(chatId, { react: { text: "❌", key: msg.key } });
+            return;
+        }
+
+        // Multiple free mobile screenshot APIs
+        const mobileApis = [
+            `https://image.thum.io/get/width/375/crop/667/${encodeURIComponent(url)}`,
+            `https://s0.wp.com/mshots/v1/${encodeURIComponent(url)}?w=375&h=667`,
+            `https://api.screenshotmachine.com/?key=YOUR_FREE_KEY&url=${encodeURIComponent(url)}&dimension=375x667`,
+            `https://screenshot-api.herokuapp.com/?url=${encodeURIComponent(url)}&width=375&height=667`
+        ];
+
+        let success = false;
+        for (const apiUrl of mobileApis) {
+            try {
+                // Test if the API responds
+                const response = await fetch(apiUrl, { method: 'HEAD' });
+                if (response.ok) {
+                    await sock.sendMessage(chatId, { 
+                        image: { url: apiUrl },
+                        caption: `📱 Mobile screenshot of ${domain}`
+                    }, { quoted: msg });
+                    success = true;
+                    break;
+                }
+            } catch (apiError) {
+                console.log(`Mobile API failed: ${apiUrl}`);
+                continue;
+            }
+        }
+
+        if (success) {
+            await sock.sendMessage(chatId, { react: { text: "✅", key: msg.key } });
+        } else {
+            throw new Error('All mobile screenshot services failed');
+        }
+
+    } catch (error) {
+        console.error('Mobile screenshot error:', error);
+        await sock.sendMessage(chatId, {
+            text: `❌ Failed to capture mobile screenshot. Try:\n• Another domain\n• Using desktop version\n• Waiting a few minutes`
+        }, { quoted: msg });
+        await sock.sendMessage(chatId, { react: { text: "❌", key: msg.key } });
+    }
+}
 // Get Github Username Info
-		if (command === 'github') {
+if (command === 'github') {
     const username = args.join(' ').trim();
 
     if (!username) {
-        await sock.sendMessage(chatId, { text: '❌ Usage: `.github username`' }, { quoted: msg });
+        await sock.sendMessage(chatId, { 
+            text: `❌ Usage: \`${currentPrefix}github username\`` 
+        }, { quoted: msg });
         return;
     }
 
@@ -1632,7 +2411,7 @@ if (command === 'ssmobile') {
     } catch (error) {
         console.error('❌ GitHub error:', error);
         await sock.sendMessage(chatId, {
-            text: `❌ GitHub user not found or error occurred.\n${error.message}`
+            text: `❌ GitHub user "${username}" not found.`
         }, { quoted: msg });
         await sock.sendMessage(chatId, { react: { text: "❌", key: msg.key } });
     }
@@ -1644,7 +2423,7 @@ if (command === 'github-roasting') {
 
     if (!username) {
         await sock.sendMessage(chatId, {
-            text: '❌ Usage: `.github-roasting username`'
+            text: `❌ Usage: \`${currentPrefix}github-roasting username\``
         }, { quoted: msg });
         return;
     }
@@ -1681,21 +2460,19 @@ if (command === 'github-roasting') {
     } catch (error) {
         console.error('❌ GitHub Roasting Error:', error);
         await sock.sendMessage(chatId, {
-            text: `❌ Failed to roast: ${error.message}`
+            text: `❌ GitHub user "${username}" not found.`
         }, { quoted: msg });
-
         await sock.sendMessage(chatId, { react: { text: "❌", key: msg.key } });
     }
 }
 
-// Anime
-// Anime command with AniList API - FIXED IMAGE SENDING
+// Anime command with AniList API - FIXED
 if (command === 'anime') {
     const searchQuery = args.join(' ').trim();
 
     if (!searchQuery) {
         await sock.sendMessage(chatId, {
-            text: '❌ *Usage:* `.anime <anime_name>`\n\n*Example:* `.anime Naruto`'
+            text: `❌ Usage: \`${currentPrefix}anime <anime_name>\`\n\nExample: \`${currentPrefix}anime Naruto\``
         }, { quoted: msg });
         return;
     }
@@ -1709,30 +2486,30 @@ if (command === 'anime') {
         
         // Add anime metadata
         if (result.score) {
-            responseMessage += `⭐ *Score:* ${result.score}/100\n`;
+            responseMessage += `⭐ Score: ${result.score}/100\n`;
         }
         if (result.status) {
-            responseMessage += `📊 *Status:* ${result.status}\n`;
+            responseMessage += `📊 Status: ${result.status}\n`;
         }
         if (result.year) {
-            responseMessage += `📅 *Year:* ${result.year}\n`;
+            responseMessage += `📅 Year: ${result.year}\n`;
         }
         if (result.genres && result.genres.length > 0) {
-            responseMessage += `🏷️ *Genres:* ${result.genres.join(', ')}\n`;
+            responseMessage += `🏷️ Genres: ${result.genres.join(', ')}\n`;
         }
         
         responseMessage += `━━━━━━━━━━━━━━━━━━━━━━\n\n`;
         responseMessage += `*📺 Streaming Sites:*\n\n`;
         
-        // Display streaming sites
-        result.episodes.forEach((site, index) => {
+        // Display streaming sites (limit to 5 to avoid long messages)
+        result.episodes.slice(0, 5).forEach((site, index) => {
             responseMessage += `*${site.epNo}. ${site.epTitle}*\n`;
             responseMessage += `🔗 ${site.videoUrl}\n`;
             if (site.note) {
                 responseMessage += `💡 ${site.note}\n`;
             }
             
-            if (index < result.episodes.length - 1) {
+            if (index < Math.min(result.episodes.length, 5) - 1) {
                 responseMessage += `\n`;
             }
         });
@@ -1740,55 +2517,15 @@ if (command === 'anime') {
         // Add footer
         responseMessage += `\n━━━━━━━━━━━━━━━━━━━━━━\n`;
         if (result.totalEpisodes) {
-            responseMessage += `⭐ *Total Episodes:* ${result.totalEpisodes}`;
+            responseMessage += `⭐ Total Episodes: ${result.totalEpisodes}`;
         } else {
-            responseMessage += `⭐ *Info:* Use links above to watch episodes`;
+            responseMessage += `⭐ Info: Use links above to watch episodes`;
         }
 
-        // FIXED: Try to send with image
-        try {
-            const tempImagePath = path.join(__dirname, '../uploads/temp_anime.jpg');
-            
-            // Create uploads directory if it doesn't exist
-            const uploadsDir = path.join(__dirname, '../uploads');
-            if (!fs.existsSync(uploadsDir)) {
-                fs.mkdirSync(uploadsDir, { recursive: true });
-            }
-            
-            console.log(`🖼️ Downloading thumbnail: ${result.animeImgUrl}`);
-            await downloadImage(result.animeImgUrl, tempImagePath);
-            
-            // Check if file was created and has content
-            if (fs.existsSync(tempImagePath)) {
-                const stats = fs.statSync(tempImagePath);
-                if (stats.size > 0) {
-                    console.log(`✅ Thumbnail downloaded: ${tempImagePath} (${stats.size} bytes)`);
-                    
-                    await sock.sendMessage(chatId, {
-                        image: { 
-                            url: tempImagePath 
-                        },
-                        caption: responseMessage
-                    }, { quoted: msg });
-                    
-                    console.log('✅ Image message sent successfully');
-                    
-                    // Cleanup temp file
-                    fs.unlinkSync(tempImagePath);
-                } else {
-                    throw new Error('Downloaded file is empty');
-                }
-            } else {
-                throw new Error('File was not created');
-            }
-            
-        } catch (imageError) {
-            console.log('❌ Image failed, sending text only:', imageError.message);
-            // Send text only as fallback
-            await sock.sendMessage(chatId, {
-                text: responseMessage
-            }, { quoted: msg });
-        }
+        // Send as text message (more reliable)
+        await sock.sendMessage(chatId, {
+            text: responseMessage
+        }, { quoted: msg });
 
         await sock.sendMessage(chatId, { react: { text: "✅", key: msg.key } });
 
@@ -1802,7 +2539,7 @@ if (command === 'anime') {
         } else if (error.message.includes('network') || error.message.includes('ENOTFOUND')) {
             errorMessage = '❌ Network error. Please check your internet connection.';
         } else if (error.message.includes('No anime found')) {
-            errorMessage = `❌ No anime found for "*${searchQuery}*"\n\n💡 *Suggestions:*\n• Check spelling\n• Use English titles\n• Try popular anime names`;
+            errorMessage = `❌ No anime found for "*${searchQuery}*"\n\n💡 Suggestions:\n• Check spelling\n• Use English titles\n• Try popular anime names`;
         }
         
         await sock.sendMessage(chatId, {
@@ -1814,12 +2551,12 @@ if (command === 'anime') {
 }
 
 // Detik Search Article
-		if (command === 'detik-search') {
+if (command === 'detik-search') {
     const query = args.join(' ').trim();
 
     if (!query) {
         await sock.sendMessage(chatId, {
-            text: '❌ Usage: `.detik-search berita hari ini`'
+            text: `❌ Usage: \`${currentPrefix}detik-search berita hari ini\``
         }, { quoted: msg });
         return;
     }
@@ -1831,66 +2568,73 @@ if (command === 'anime') {
 
         if (!articles || articles.length === 0) {
             await sock.sendMessage(chatId, {
-                text: '❌ No articles found.'
+                text: `❌ No articles found for "${query}".`
             }, { quoted: msg });
+            await sock.sendMessage(chatId, { react: { text: "❌", key: msg.key } });
             return;
         }
 
-        const responseText = articles
-            .map(article => `📰 *${article.title}*\n🔗 ${article.url}`)
+        // Limit to 5 articles to avoid long messages
+        const limitedArticles = articles.slice(0, 5);
+        const responseText = limitedArticles
+            .map((article, index) => `*${index + 1}. ${article.title}*\n🔗 ${article.url}`)
             .join('\n\n');
 
         await sock.sendMessage(chatId, { text: responseText }, { quoted: msg });
-        console.log(`✅ Detik News sent successfully`);
         await sock.sendMessage(chatId, { react: { text: "✅", key: msg.key } });
 
     } catch (error) {
         console.error('❌ Detik News Error:', error);
-
         await sock.sendMessage(chatId, {
             text: `❌ Failed to search Detik: ${error.message}`
         }, { quoted: msg });
-
         await sock.sendMessage(chatId, { react: { text: "❌", key: msg.key } });
     }
 }
 
 // Detik News Article
-	if (command === 'detik-article') {
+if (command === 'detik-article') {
     await sock.sendMessage(chatId, { react: { text: "👨‍💻", key: msg.key } });
 
     try {
         const articles = await DetikLatest();
 
         if (!articles || articles.length === 0) {
-            await sock.sendMessage(chatId, { text: '❌ No news articles found.' }, { quoted: msg });
+            await sock.sendMessage(chatId, { 
+                text: '❌ No news articles found.' 
+            }, { quoted: msg });
+            await sock.sendMessage(chatId, { react: { text: "❌", key: msg.key } });
             return;
         }
 
-        const responseText = articles.map(article => `📰 *${article.title}*\n🔗 ${article.url}`).join('\n\n');
+        // Limit to 5 articles
+        const limitedArticles = articles.slice(0, 5);
+        const responseText = limitedArticles
+            .map((article, index) => `*${index + 1}. ${article.title}*\n🔗 ${article.url}`)
+            .join('\n\n');
 
         await sock.sendMessage(chatId, { text: responseText }, { quoted: msg });
-        console.log(`✅ Response: Latest Detik news sent`);
         await sock.sendMessage(chatId, { react: { text: "✅", key: msg.key } });
         
     } catch (error) {
         console.error('❌ Detik Article Error:', error);
+        await sock.sendMessage(chatId, { 
+            text: `❌ Failed to fetch Detik articles: ${error.message}` 
+        }, { quoted: msg });
         await sock.sendMessage(chatId, { react: { text: "❌", key: msg.key } });
-        await sock.sendMessage(chatId, { text: `❌ Failed to fetch Detik articles.` }, { quoted: msg });
     }
 }
-
 // ==============================================
 // 🔹DOWNLOAD COMMANDS
 // ==============================================
 
 // Twitter Video to MP4
-	if (command === 'tw-mp4') {
+if (command === 'tw-mp4') {
     const url = args.join(' ').trim();
 
-    if (!url.startsWith('http')) {
+    if (!url || !url.startsWith('http')) {
         await sock.sendMessage(chatId, {
-            text: '❌ Invalid or missing Twitter URL.\n\nExample: `.tw-mp4 https://twitter.com/...`'
+            text: `❌ Invalid or missing Twitter URL.\n\nExample: \`${currentPrefix}tw-mp4 https://twitter.com/...\``
         }, { quoted: msg });
         return;
     }
@@ -1898,21 +2642,30 @@ if (command === 'anime') {
     await sock.sendMessage(chatId, { react: { text: "👨‍💻", key: msg.key } });
 
     try {
-        const outputFilePath = path.join(__dirname, "../uploads", "twdl-video.mp4");
+        // Create uploads directory if it doesn't exist
+        const uploadsDir = path.join(__dirname, "../uploads");
+        if (!fs.existsSync(uploadsDir)) {
+            fs.mkdirSync(uploadsDir, { recursive: true });
+        }
+
+        const outputFilePath = path.join(uploadsDir, `twdl-video-${Date.now()}.mp4`);
         await TwitterVideo(url, outputFilePath);
 
+        // Check if file was created
+        if (!fs.existsSync(outputFilePath)) {
+            throw new Error('Downloaded file not found');
+        }
+
         await sock.sendMessage(chatId, {
-            video: { url: outputFilePath },
-            caption: "📥 Here’s your Twitter video!"
+            video: fs.readFileSync(outputFilePath),
+            caption: "📥 Here's your Twitter video!"
         }, { quoted: msg });
 
         console.log(`✅ Twitter video sent: ${outputFilePath}`);
         await sock.sendMessage(chatId, { react: { text: "✅", key: msg.key } });
 
         // Clean up
-        fs.unlink(outputFilePath, (err) => {
-            if (err) console.error(`❌ Error deleting file: ${err.message}`);
-        });
+        fs.unlinkSync(outputFilePath);
 
     } catch (error) {
         console.error('❌ Twitter Download Error:', error);
@@ -1923,197 +2676,409 @@ if (command === 'anime') {
     }
 }
 
-       // Twitter Video to MP3
+// Twitter Video to MP3
 if (command === "twdl-mp3") {
-    const url = args[0];
+    const url = args.join(' ').trim();
+
+    if (!url || !url.startsWith('http')) {
+        await sock.sendMessage(chatId, {
+            text: `❌ Invalid or missing Twitter URL.\n\nExample: \`${currentPrefix}twdl-mp3 https://twitter.com/...\``
+        }, { quoted: msg });
+        return;
+    }
+
     await sock.sendMessage(chatId, { react: { text: "👨‍💻", key: msg.key } });
 
     try {
-        const outputFilePath = path.join(__dirname, "../uploads", "twdl-audio.mp3");
+        const uploadsDir = path.join(__dirname, "../uploads");
+        if (!fs.existsSync(uploadsDir)) {
+            fs.mkdirSync(uploadsDir, { recursive: true });
+        }
+
+        const outputFilePath = path.join(uploadsDir, `twdl-audio-${Date.now()}.mp3`);
         await TwitterAudio(url, outputFilePath);
 
-        await sock.sendMessage(chatId, { audio: { url: outputFilePath }, mimetype: 'audio/mp4' }, { quoted: msg });
-        console.log(`Response: Success sending video ${outputFilePath}`);
+        if (!fs.existsSync(outputFilePath)) {
+            throw new Error('Downloaded file not found');
+        }
+
+        await sock.sendMessage(chatId, { 
+            audio: fs.readFileSync(outputFilePath), 
+            mimetype: 'audio/mp4' 
+        }, { quoted: msg });
+        
+        console.log(`✅ Twitter audio sent: ${outputFilePath}`);
         await sock.sendMessage(chatId, { react: { text: "✅", key: msg.key } });
 
-        fs.unlink(outputFilePath, err => err && console.error(`Error deleting file: ${err.message}`));
+        fs.unlinkSync(outputFilePath);
     } catch (error) {
-        console.error('Error sending message:', error);
+        console.error('❌ Twitter Audio Error:', error);
+        await sock.sendMessage(chatId, { 
+            text: `❌ Failed to download Twitter audio: ${error.message}` 
+        }, { quoted: msg });
         await sock.sendMessage(chatId, { react: { text: "❌", key: msg.key } });
     }
 }
 
 // Instagram Video to MP4
 if (command === "igdl-mp4") {
-    const url = args[0];
+    const url = args.join(' ').trim();
+
+    if (!url || !url.startsWith('http')) {
+        await sock.sendMessage(chatId, {
+            text: `❌ Invalid or missing Instagram URL.\n\nExample: \`${currentPrefix}igdl-mp4 https://instagram.com/...\``
+        }, { quoted: msg });
+        return;
+    }
+
     await sock.sendMessage(chatId, { react: { text: "👨‍💻", key: msg.key } });
 
     try {
-        const outputFilePath = path.join(__dirname, "../uploads", "igdl-video.mp4");
+        const uploadsDir = path.join(__dirname, "../uploads");
+        if (!fs.existsSync(uploadsDir)) {
+            fs.mkdirSync(uploadsDir, { recursive: true });
+        }
+
+        const outputFilePath = path.join(uploadsDir, `igdl-video-${Date.now()}.mp4`);
         await InstagramVideo(url, outputFilePath);
 
-        await sock.sendMessage(chatId, { video: { url: outputFilePath }, caption: "This is the video you asked for!" }, { quoted: msg });
-        console.log(`Response: Success sending video ${outputFilePath}`);
+        if (!fs.existsSync(outputFilePath)) {
+            throw new Error('Downloaded file not found');
+        }
+
+        await sock.sendMessage(chatId, { 
+            video: fs.readFileSync(outputFilePath), 
+            caption: "📥 Here's your Instagram video!" 
+        }, { quoted: msg });
+        
+        console.log(`✅ Instagram video sent: ${outputFilePath}`);
         await sock.sendMessage(chatId, { react: { text: "✅", key: msg.key } });
 
-        fs.unlink(outputFilePath, err => err && console.error(`Error deleting file: ${err.message}`));
+        fs.unlinkSync(outputFilePath);
     } catch (error) {
-        console.error('Error sending message:', error);
+        console.error('❌ Instagram Video Error:', error);
+        await sock.sendMessage(chatId, { 
+            text: `❌ Failed to download Instagram video: ${error.message}` 
+        }, { quoted: msg });
         await sock.sendMessage(chatId, { react: { text: "❌", key: msg.key } });
     }
 }
 
 // Instagram Video to MP3
 if (command === "igdl-mp3") {
-    const url = args[0];
+    const url = args.join(' ').trim();
+
+    if (!url || !url.startsWith('http')) {
+        await sock.sendMessage(chatId, {
+            text: `❌ Invalid or missing Instagram URL.\n\nExample: \`${currentPrefix}igdl-mp3 https://instagram.com/...\``
+        }, { quoted: msg });
+        return;
+    }
+
     await sock.sendMessage(chatId, { react: { text: "👨‍💻", key: msg.key } });
 
     try {
-        const outputFilePath = path.join(__dirname, "../uploads", "igdl-audio.mp3");
+        const uploadsDir = path.join(__dirname, "../uploads");
+        if (!fs.existsSync(uploadsDir)) {
+            fs.mkdirSync(uploadsDir, { recursive: true });
+        }
+
+        const outputFilePath = path.join(uploadsDir, `igdl-audio-${Date.now()}.mp3`);
         await InstagramAudio(url, outputFilePath);
 
-        await sock.sendMessage(chatId, { audio: { url: outputFilePath }, mimetype: 'audio/mp4' }, { quoted: msg });
-        console.log(`Response: Success sending video ${outputFilePath}`);
+        if (!fs.existsSync(outputFilePath)) {
+            throw new Error('Downloaded file not found');
+        }
+
+        await sock.sendMessage(chatId, { 
+            audio: fs.readFileSync(outputFilePath), 
+            mimetype: 'audio/mp4' 
+        }, { quoted: msg });
+        
+        console.log(`✅ Instagram audio sent: ${outputFilePath}`);
         await sock.sendMessage(chatId, { react: { text: "✅", key: msg.key } });
 
-        fs.unlink(outputFilePath, err => err && console.error(`Error deleting file: ${err.message}`));
+        fs.unlinkSync(outputFilePath);
     } catch (error) {
-        console.error('Error sending message:', error);
+        console.error('❌ Instagram Audio Error:', error);
+        await sock.sendMessage(chatId, { 
+            text: `❌ Failed to download Instagram audio: ${error.message}` 
+        }, { quoted: msg });
         await sock.sendMessage(chatId, { react: { text: "❌", key: msg.key } });
     }
 }
 
 // TikTok Video to MP4
 if (command === "tkdl-mp4") {
-    const url = args[0];
+    const url = args.join(' ').trim();
+
+    if (!url || !url.startsWith('http')) {
+        await sock.sendMessage(chatId, {
+            text: `❌ Invalid or missing TikTok URL.\n\nExample: \`${currentPrefix}tkdl-mp4 https://tiktok.com/...\``
+        }, { quoted: msg });
+        return;
+    }
+
     await sock.sendMessage(chatId, { react: { text: "👨‍💻", key: msg.key } });
 
     try {
-        const outputFilePath = path.join(__dirname, "../uploads", "tkdl-video.mp4");
+        const uploadsDir = path.join(__dirname, "../uploads");
+        if (!fs.existsSync(uploadsDir)) {
+            fs.mkdirSync(uploadsDir, { recursive: true });
+        }
+
+        const outputFilePath = path.join(uploadsDir, `tkdl-video-${Date.now()}.mp4`);
         await TikTokVideo(url, outputFilePath);
 
-        await sock.sendMessage(chatId, { video: { url: outputFilePath }, caption: "This is the video you asked for!" }, { quoted: msg });
-        console.log(`Response: Success sending video ${outputFilePath}`);
+        if (!fs.existsSync(outputFilePath)) {
+            throw new Error('Downloaded file not found');
+        }
+
+        await sock.sendMessage(chatId, { 
+            video: fs.readFileSync(outputFilePath), 
+            caption: "📥 Here's your TikTok video!" 
+        }, { quoted: msg });
+        
+        console.log(`✅ TikTok video sent: ${outputFilePath}`);
         await sock.sendMessage(chatId, { react: { text: "✅", key: msg.key } });
 
-        fs.unlink(outputFilePath, err => err && console.error(`Error deleting file: ${err.message}`));
+        fs.unlinkSync(outputFilePath);
     } catch (error) {
-        console.error('Error sending message:', error);
+        console.error('❌ TikTok Video Error:', error);
+        await sock.sendMessage(chatId, { 
+            text: `❌ Failed to download TikTok video: ${error.message}` 
+        }, { quoted: msg });
         await sock.sendMessage(chatId, { react: { text: "❌", key: msg.key } });
     }
 }
 
 // TikTok Video to MP3
 if (command === "tkdl-mp3") {
-    const url = args[0];
+    const url = args.join(' ').trim();
+
+    if (!url || !url.startsWith('http')) {
+        await sock.sendMessage(chatId, {
+            text: `❌ Invalid or missing TikTok URL.\n\nExample: \`${currentPrefix}tkdl-mp3 https://tiktok.com/...\``
+        }, { quoted: msg });
+        return;
+    }
+
     await sock.sendMessage(chatId, { react: { text: "👨‍💻", key: msg.key } });
 
     try {
-        const outputFilePath = path.join(__dirname, "../uploads", "tkdl-audio.mp3");
+        const uploadsDir = path.join(__dirname, "../uploads");
+        if (!fs.existsSync(uploadsDir)) {
+            fs.mkdirSync(uploadsDir, { recursive: true });
+        }
+
+        const outputFilePath = path.join(uploadsDir, `tkdl-audio-${Date.now()}.mp3`);
         await TikTokAudio(url, outputFilePath);
 
-        await sock.sendMessage(chatId, { audio: { url: outputFilePath }, mimetype: 'audio/mp4' }, { quoted: msg });
-        console.log(`Response: Success sending video ${outputFilePath}`);
+        if (!fs.existsSync(outputFilePath)) {
+            throw new Error('Downloaded file not found');
+        }
+
+        await sock.sendMessage(chatId, { 
+            audio: fs.readFileSync(outputFilePath), 
+            mimetype: 'audio/mp4' 
+        }, { quoted: msg });
+        
+        console.log(`✅ TikTok audio sent: ${outputFilePath}`);
         await sock.sendMessage(chatId, { react: { text: "✅", key: msg.key } });
 
-        fs.unlink(outputFilePath, err => err && console.error(`Error deleting file: ${err.message}`));
+        fs.unlinkSync(outputFilePath);
     } catch (error) {
-        console.error('Error sending message:', error);
+        console.error('❌ TikTok Audio Error:', error);
+        await sock.sendMessage(chatId, { 
+            text: `❌ Failed to download TikTok audio: ${error.message}` 
+        }, { quoted: msg });
         await sock.sendMessage(chatId, { react: { text: "❌", key: msg.key } });
     }
 }
 
 // Vimeo Video to MP4
 if (command === "vmdl-mp4") {
-    const url = args[0];
+    const url = args.join(' ').trim();
+
+    if (!url || !url.startsWith('http')) {
+        await sock.sendMessage(chatId, {
+            text: `❌ Invalid or missing Vimeo URL.\n\nExample: \`${currentPrefix}vmdl-mp4 https://vimeo.com/...\``
+        }, { quoted: msg });
+        return;
+    }
+
     await sock.sendMessage(chatId, { react: { text: "👨‍💻", key: msg.key } });
 
     try {
-        const outputFilePath = path.join(__dirname, "../uploads", "vmdl-video.mp4");
+        const uploadsDir = path.join(__dirname, "../uploads");
+        if (!fs.existsSync(uploadsDir)) {
+            fs.mkdirSync(uploadsDir, { recursive: true });
+        }
+
+        const outputFilePath = path.join(uploadsDir, `vmdl-video-${Date.now()}.mp4`);
         await VimeoVideo(url, outputFilePath);
 
-        await sock.sendMessage(chatId, { video: { url: outputFilePath }, caption: "This is the video you asked for!" }, { quoted: msg });
-        console.log(`Response: Success sending video ${outputFilePath}`);
+        if (!fs.existsSync(outputFilePath)) {
+            throw new Error('Downloaded file not found');
+        }
+
+        await sock.sendMessage(chatId, { 
+            video: fs.readFileSync(outputFilePath), 
+            caption: "📥 Here's your Vimeo video!" 
+        }, { quoted: msg });
+        
+        console.log(`✅ Vimeo video sent: ${outputFilePath}`);
         await sock.sendMessage(chatId, { react: { text: "✅", key: msg.key } });
 
-        fs.unlink(outputFilePath, err => err && console.error(`Error deleting file: ${err.message}`));
+        fs.unlinkSync(outputFilePath);
     } catch (error) {
-        console.error('Error sending message:', error);
+        console.error('❌ Vimeo Video Error:', error);
+        await sock.sendMessage(chatId, { 
+            text: `❌ Failed to download Vimeo video: ${error.message}` 
+        }, { quoted: msg });
         await sock.sendMessage(chatId, { react: { text: "❌", key: msg.key } });
     }
 }
 
 // Vimeo Video to MP3
 if (command === "vmdl-mp3") {
-    const url = args[0];
+    const url = args.join(' ').trim();
+
+    if (!url || !url.startsWith('http')) {
+        await sock.sendMessage(chatId, {
+            text: `❌ Invalid or missing Vimeo URL.\n\nExample: \`${currentPrefix}vmdl-mp3 https://vimeo.com/...\``
+        }, { quoted: msg });
+        return;
+    }
+
     await sock.sendMessage(chatId, { react: { text: "👨‍💻", key: msg.key } });
 
     try {
-        const outputFilePath = path.join(__dirname, "../uploads", "vmdl-audio.mp3");
+        const uploadsDir = path.join(__dirname, "../uploads");
+        if (!fs.existsSync(uploadsDir)) {
+            fs.mkdirSync(uploadsDir, { recursive: true });
+        }
+
+        const outputFilePath = path.join(uploadsDir, `vmdl-audio-${Date.now()}.mp3`);
         await VimeoAudio(url, outputFilePath);
 
-        await sock.sendMessage(chatId, { audio: { url: outputFilePath }, mimetype: 'audio/mp4' }, { quoted: msg });
-        console.log(`Response: Success sending video ${outputFilePath}`);
+        if (!fs.existsSync(outputFilePath)) {
+            throw new Error('Downloaded file not found');
+        }
+
+        await sock.sendMessage(chatId, { 
+            audio: fs.readFileSync(outputFilePath), 
+            mimetype: 'audio/mp4' 
+        }, { quoted: msg });
+        
+        console.log(`✅ Vimeo audio sent: ${outputFilePath}`);
         await sock.sendMessage(chatId, { react: { text: "✅", key: msg.key } });
 
-        fs.unlink(outputFilePath, err => err && console.error(`Error deleting file: ${err.message}`));
+        fs.unlinkSync(outputFilePath);
     } catch (error) {
-        console.error('Error sending message:', error);
+        console.error('❌ Vimeo Audio Error:', error);
+        await sock.sendMessage(chatId, { 
+            text: `❌ Failed to download Vimeo audio: ${error.message}` 
+        }, { quoted: msg });
         await sock.sendMessage(chatId, { react: { text: "❌", key: msg.key } });
     }
 }
 
 // Facebook Video to MP4
-if (command === "fbdl-mp4") {
-    const url = args[0];
+if (command === "fb-mp4") {
+    const url = args.join(' ').trim();
+
+    if (!url || !url.startsWith('http')) {
+        await sock.sendMessage(chatId, {
+            text: `❌ Invalid or missing Facebook URL.\n\nExample: \`${currentPrefix}fbdl-mp4 https://facebook.com/...\``
+        }, { quoted: msg });
+        return;
+    }
+
     await sock.sendMessage(chatId, { react: { text: "👨‍💻", key: msg.key } });
 
     try {
-        const outputFilePath = path.join(__dirname, "../uploads", "fbdl-video.mp4");
+        const uploadsDir = path.join(__dirname, "../uploads");
+        if (!fs.existsSync(uploadsDir)) {
+            fs.mkdirSync(uploadsDir, { recursive: true });
+        }
+
+        const outputFilePath = path.join(uploadsDir, `fbdl-video-${Date.now()}.mp4`);
         await FacebookVideo(url, outputFilePath);
 
-        await sock.sendMessage(chatId, { video: { url: outputFilePath }, caption: "This is the video you asked for!" }, { quoted: msg });
-        console.log(`Response: Success sending video ${outputFilePath}`);
+        if (!fs.existsSync(outputFilePath)) {
+            throw new Error('Downloaded file not found');
+        }
+
+        await sock.sendMessage(chatId, { 
+            video: fs.readFileSync(outputFilePath), 
+            caption: "📥 Here's your Facebook video!" 
+        }, { quoted: msg });
+        
+        console.log(`✅ Facebook video sent: ${outputFilePath}`);
         await sock.sendMessage(chatId, { react: { text: "✅", key: msg.key } });
 
-        fs.unlink(outputFilePath, err => err && console.error(`Error deleting file: ${err.message}`));
+        fs.unlinkSync(outputFilePath);
     } catch (error) {
-        console.error('Error sending message:', error);
+        console.error('❌ Facebook Video Error:', error);
+        await sock.sendMessage(chatId, { 
+            text: `❌ Failed to download Facebook video: ${error.message}` 
+        }, { quoted: msg });
         await sock.sendMessage(chatId, { react: { text: "❌", key: msg.key } });
     }
 }
 
 // Facebook Video to MP3
 if (command === "fbdl-mp3") {
-    const url = args[0];
+    const url = args.join(' ').trim();
+
+    if (!url || !url.startsWith('http')) {
+        await sock.sendMessage(chatId, {
+            text: `❌ Invalid or missing Facebook URL.\n\nExample: \`${currentPrefix}fbdl-mp3 https://facebook.com/...\``
+        }, { quoted: msg });
+        return;
+    }
+
     await sock.sendMessage(chatId, { react: { text: "👨‍💻", key: msg.key } });
 
     try {
-        const outputFilePath = path.join(__dirname, "../uploads", "fbdl-audio.mp3");
+        const uploadsDir = path.join(__dirname, "../uploads");
+        if (!fs.existsSync(uploadsDir)) {
+            fs.mkdirSync(uploadsDir, { recursive: true });
+        }
+
+        const outputFilePath = path.join(uploadsDir, `fbdl-audio-${Date.now()}.mp3`);
         await FacebookAudio(url, outputFilePath);
 
-        await sock.sendMessage(chatId, { audio: { url: outputFilePath }, mimetype: 'audio/mp4' }, { quoted: msg });
-        console.log(`Response: Success sending video ${outputFilePath}`);
+        if (!fs.existsSync(outputFilePath)) {
+            throw new Error('Downloaded file not found');
+        }
+
+        await sock.sendMessage(chatId, { 
+            audio: fs.readFileSync(outputFilePath), 
+            mimetype: 'audio/mp4' 
+        }, { quoted: msg });
+        
+        console.log(`✅ Facebook audio sent: ${outputFilePath}`);
         await sock.sendMessage(chatId, { react: { text: "✅", key: msg.key } });
 
-        fs.unlink(outputFilePath, err => err && console.error(`Error deleting file: ${err.message}`));
+        fs.unlinkSync(outputFilePath);
     } catch (error) {
-        console.error('Error sending message:', error);
+        console.error('❌ Facebook Audio Error:', error);
+        await sock.sendMessage(chatId, { 
+            text: `❌ Failed to download Facebook audio: ${error.message}` 
+        }, { quoted: msg });
         await sock.sendMessage(chatId, { react: { text: "❌", key: msg.key } });
     }
 }
-
-
-
-const { exec: ytExec } = require('yt-dlp-exec');
-const playdl = require('play-dl');
-const axios = require('axios');
-
+// Play Music 
 if (command === "play") {
     let query = args.join(" ");
 
     if (!query) {
-        await sock.sendMessage(chatId, { text: "❌ Please provide a search query.\nExample: \\play song name" }, { quoted: msg });
+        await sock.sendMessage(chatId, { 
+            text: `❌ Please provide a search query.\nExample: \\${currentPrefix}play song name` 
+        }, { quoted: msg });
         return;
     }
 
@@ -2121,7 +3086,7 @@ if (command === "play") {
 
     try {
         // Create upload directory
-        const uploadDir = path.join(__dirname, "upload");
+        const uploadDir = path.join(__dirname, "../uploads");
         if (!fs.existsSync(uploadDir)) {
             fs.mkdirSync(uploadDir, { recursive: true });
         }
@@ -2130,7 +3095,10 @@ if (command === "play") {
         console.log('🔍 Searching for:', query);
         const results = await playdl.search(query, { limit: 1 });
         if (!results || results.length === 0) {
-            await sock.sendMessage(chatId, { text: "❌ Song not found. Try a different search term." }, { quoted: msg });
+            await sock.sendMessage(chatId, { 
+                text: "❌ Song not found. Try a different search term." 
+            }, { quoted: msg });
+            await sock.sendMessage(chatId, { react: { text: "❌", key: msg.key } });
             return;
         }
 
@@ -2143,13 +3111,13 @@ if (command === "play") {
         const videoInfo = await playdl.video_info(videoUrl);
         const videoDetails = videoInfo.video_details;
 
-        // Get thumbnail URL (highest quality available)
+        // Get thumbnail URL
         const thumbnails = videoDetails.thumbnails || [];
         const thumbnailUrl = thumbnails.length > 0 ? 
-            thumbnails[thumbnails.length - 1].url : // Highest quality thumbnail
+            thumbnails[thumbnails.length - 1].url : 
             `https://img.youtube.com/vi/${videoDetails.id}/maxresdefault.jpg`;
 
-        // Format duration to 00:00:00 format
+        // Format duration
         const formatDuration = (durationRaw) => {
             if (!durationRaw) return "00:00";
             const parts = durationRaw.split(':');
@@ -2181,43 +3149,22 @@ if (command === "play") {
         const timeAgo = getTimeAgo(videoDetails.uploadedAt);
         const views = videoDetails.views ? videoDetails.views.toLocaleString() : "Unknown";
 
-        // Step 3: Download thumbnail
-        let thumbnailBuffer = null;
-        try {
-            console.log('🖼️ Downloading thumbnail...');
-            const thumbnailResponse = await axios.get(thumbnailUrl, { 
-                responseType: 'arraybuffer',
-                timeout: 10000 
-            });
-            thumbnailBuffer = Buffer.from(thumbnailResponse.data, 'binary');
-            console.log('✅ Thumbnail downloaded');
-        } catch (thumbError) {
-            console.log('❌ Thumbnail download failed, using text only');
-        }
+        // Step 3: Send info message
+        const caption = `🎶 *DESIRE-EXE MUSIC PLAYER*\n\n` +
+            `📛 *Title:* ${videoDetails.title}\n` +
+            `👀 *Views:* ${views}\n` +
+            `⏱️ *Duration:* ${formattedDuration}\n` +
+            `📅 *Uploaded:* ${timeAgo}\n` +
+            `🔗 *URL:* ${videoUrl}\n\n` +
+            `_Powered by Desire eXe_`;
 
-        // Step 4: Send thumbnail with caption
-        const caption = `🎶 DESIRE-EXE MUSIC PLAYER\n` +
-            `> Title: ${videoDetails.title}\n` +
-            `> Views: ${views}\n` +
-            `> Duration: ${formattedDuration}\n` +
-            `> Uploaded: ${timeAgo}\n` +
-            `> Url: ${videoUrl}\n` +
-            `> ᴘᴏᴡᴇʀᴇᴅ ʙʏ ᴅᴇꜱɪʀᴇ ᴇxᴇ`;
-
-        if (thumbnailBuffer) {
-            await sock.sendMessage(chatId, {
-                image: thumbnailBuffer,
-                caption: caption
-            }, { quoted: msg });
-        } else {
-            await sock.sendMessage(chatId, { 
-                text: caption 
-            }, { quoted: msg });
-        }
+        await sock.sendMessage(chatId, { 
+            text: caption 
+        }, { quoted: msg });
 
         await sock.sendMessage(chatId, { react: { text: "⬇️", key: msg.key } });
 
-        // Step 5: Download using yt-dlp
+        // Step 4: Download using yt-dlp
         const outputPath = path.join(uploadDir, `audio-${Date.now()}.mp3`);
         
         console.log('📥 Downloading audio with yt-dlp...');
@@ -2241,15 +3188,19 @@ if (command === "play") {
         const stats = fs.statSync(outputPath);
         console.log('✅ Download completed. File size:', stats.size, 'bytes');
 
-        if (stats.size > 50 * 1024 * 1024) {
+        // WhatsApp has ~16MB limit for audio files
+        if (stats.size > 16 * 1024 * 1024) {
             fs.unlinkSync(outputPath);
-            await sock.sendMessage(chatId, { text: "❌ File is too large to send." }, { quoted: msg });
+            await sock.sendMessage(chatId, { 
+                text: "❌ Audio file is too large for WhatsApp (max 16MB)." 
+            }, { quoted: msg });
+            await sock.sendMessage(chatId, { react: { text: "❌", key: msg.key } });
             return;
         }
 
         await sock.sendMessage(chatId, { react: { text: "🎶", key: msg.key } });
 
-        // Step 6: Send audio file
+        // Step 5: Send audio file
         console.log('📤 Sending audio file...');
         await sock.sendMessage(chatId, {
             audio: fs.readFileSync(outputPath),
@@ -2266,26 +3217,29 @@ if (command === "play") {
     } catch (err) {
         console.error('❌ Play command error:', err);
         
-        let errorMsg = "❌ An error occurred: ";
+        let errorMsg = "❌ An error occurred while downloading: ";
         if (err.message.includes('Python')) {
-            errorMsg += "Python is required but not installed or not in PATH.";
+            errorMsg += "Python/yt-dlp not configured properly.";
         } else if (err.message.includes('not found')) {
-            errorMsg += "Video not found.";
+            errorMsg += "Song not found.";
+        } else if (err.message.includes('too large')) {
+            errorMsg += "File is too large for WhatsApp.";
         } else {
             errorMsg += err.message;
         }
         
         await sock.sendMessage(chatId, { text: errorMsg }, { quoted: msg });
+        await sock.sendMessage(chatId, { react: { text: "❌", key: msg.key } });
     }
 }
-
-
-
+// Download Video
 if (command === "video") {
     let query = args.join(" ");
 
     if (!query) {
-        await sock.sendMessage(chatId, { text: "❌ Please provide a search query.\nExample: \\video search term" }, { quoted: msg });
+        await sock.sendMessage(chatId, { 
+            text: `❌ Please provide a search query.\nExample: \\${currentPrefix}video search term` 
+        }, { quoted: msg });
         return;
     }
 
@@ -2293,7 +3247,7 @@ if (command === "video") {
 
     try {
         // Create upload directory
-        const uploadDir = path.join(__dirname, "upload");
+        const uploadDir = path.join(__dirname, "../uploads");
         if (!fs.existsSync(uploadDir)) {
             fs.mkdirSync(uploadDir, { recursive: true });
         }
@@ -2302,7 +3256,10 @@ if (command === "video") {
         console.log('🔍 Searching for video:', query);
         const results = await playdl.search(query, { limit: 1 });
         if (!results || results.length === 0) {
-            await sock.sendMessage(chatId, { text: "❌ Video not found. Try a different search term." }, { quoted: msg });
+            await sock.sendMessage(chatId, { 
+                text: "❌ Video not found. Try a different search term." 
+            }, { quoted: msg });
+            await sock.sendMessage(chatId, { react: { text: "❌", key: msg.key } });
             return;
         }
 
@@ -2311,17 +3268,21 @@ if (command === "video") {
         
         console.log('🎯 Found video:', video.title, 'URL:', videoUrl);
 
-        // Step 2: Get video info for thumbnail and metadata
+        // Step 2: Get video info
         const videoInfo = await playdl.video_info(videoUrl);
         const videoDetails = videoInfo.video_details;
 
-        // Get thumbnail URL (highest quality available)
-        const thumbnails = videoDetails.thumbnails || [];
-        const thumbnailUrl = thumbnails.length > 0 ? 
-            thumbnails[thumbnails.length - 1].url :
-            `https://img.youtube.com/vi/${videoDetails.id}/maxresdefault.jpg`;
+        // Check video duration (avoid long videos that will be too large)
+        const durationInSeconds = videoDetails.durationInSec || 0;
+        if (durationInSeconds > 600) { // 10 minutes
+            await sock.sendMessage(chatId, { 
+                text: "❌ Video is too long (over 10 minutes). Try a shorter video." 
+            }, { quoted: msg });
+            await sock.sendMessage(chatId, { react: { text: "❌", key: msg.key } });
+            return;
+        }
 
-        // Format duration to 00:00:00 format
+        // Format duration
         const formatDuration = (durationRaw) => {
             if (!durationRaw) return "00:00";
             const parts = durationRaw.split(':');
@@ -2353,114 +3314,148 @@ if (command === "video") {
         const timeAgo = getTimeAgo(videoDetails.uploadedAt);
         const views = videoDetails.views ? videoDetails.views.toLocaleString() : "Unknown";
 
-        // Step 3: Download thumbnail
-        let thumbnailBuffer = null;
-        try {
-            console.log('🖼️ Downloading thumbnail...');
-            const thumbnailResponse = await axios.get(thumbnailUrl, { 
-                responseType: 'arraybuffer',
-                timeout: 10000 
-            });
-            thumbnailBuffer = Buffer.from(thumbnailResponse.data, 'binary');
-            console.log('✅ Thumbnail downloaded');
-        } catch (thumbError) {
-            console.log('❌ Thumbnail download failed, using text only');
-        }
+        // Step 3: Send info message
+        const caption = `🎥 *DESIRE-EXE VIDEO DOWNLOADER*\n\n` +
+            `📛 *Title:* ${videoDetails.title}\n` +
+            `👀 *Views:* ${views}\n` +
+            `⏱️ *Duration:* ${formattedDuration}\n` +
+            `📅 *Uploaded:* ${timeAgo}\n` +
+            `🔗 *URL:* ${videoUrl}\n\n` +
+            `_Powered by Desire eXe_`;
 
-        // Step 4: Send thumbnail with caption
-        const caption = `🎶 DESIRE-EXE MUSIC PLAYER\n` +
-            `> Title: ${videoDetails.title}\n` +
-            `> Views: ${views}\n` +
-            `> Duration: ${formattedDuration}\n` +
-            `> Uploaded: ${timeAgo}\n` +
-            `> Url: ${videoUrl}\n` +
-            `> ᴘᴏᴡᴇʀᴇᴅ ʙʏ ᴅᴇꜱɪʀᴇ ᴇxᴇ`;
-
-        if (thumbnailBuffer) {
-            await sock.sendMessage(chatId, {
-                image: thumbnailBuffer,
-                caption: caption
-            }, { quoted: msg });
-        } else {
-            await sock.sendMessage(chatId, { 
-                text: caption 
-            }, { quoted: msg });
-        }
+        await sock.sendMessage(chatId, { 
+            text: caption 
+        }, { quoted: msg });
 
         await sock.sendMessage(chatId, { react: { text: "⬇️", key: msg.key } });
 
-        // Step 5: Download video using yt-dlp (optimized for WhatsApp)
+        // Step 4: Download video using yt-dlp with simple format selection
         const outputPath = path.join(uploadDir, `video-${Date.now()}.mp4`);
         
         console.log('📥 Downloading video with yt-dlp...');
         
-        await ytExec(videoUrl, {
-            format: 'best[height<=480][filesize<50M]', // Max 480p and 50MB for WhatsApp
-            output: outputPath,
-            noCheckCertificates: true,
-            noWarnings: true,
-            preferFreeFormats: true,
-            addHeader: ['referer:youtube.com', 'user-agent:googlebot']
-        });
+        // Simple format selection without file size restrictions
+        const formatOptions = [
+            'worst',           // Smallest file size
+            'worst[height>=144]', // Worst but at least 144p
+            'best[height<=360]',  // Best up to 360p
+            'best[height<=480]',  // Best up to 480p
+            'best[height<=720]',  // Best up to 720p
+            'best'             // Best available
+        ];
 
-        // Check if file was created
-        if (!fs.existsSync(outputPath)) {
-            throw new Error('Download failed - no output file created');
+        let downloadSuccess = false;
+        let lastError = null;
+
+        for (const format of formatOptions) {
+            try {
+                console.log(`🔄 Trying format: ${format}`);
+                
+                // Clear any existing file
+                if (fs.existsSync(outputPath)) {
+                    fs.unlinkSync(outputPath);
+                }
+                
+                await ytExec(videoUrl, {
+                    format: format,
+                    output: outputPath,
+                    noCheckCertificates: true,
+                    noWarnings: true,
+                });
+
+                // Check if file was created and has content
+                if (fs.existsSync(outputPath)) {
+                    const stats = fs.statSync(outputPath);
+                    if (stats.size > 0) {
+                        console.log(`✅ Download completed with format: ${format}. File size:`, stats.size, 'bytes');
+                        
+                        // Check if file is too large for WhatsApp
+                        if (stats.size > 50 * 1024 * 1024) { // 50MB limit
+                            console.log('❌ File too large, trying next format...');
+                            fs.unlinkSync(outputPath);
+                            continue;
+                        }
+                        
+                        downloadSuccess = true;
+                        break;
+                    } else {
+                        // Delete empty file and try next format
+                        fs.unlinkSync(outputPath);
+                    }
+                }
+            } catch (formatError) {
+                console.log(`❌ Format failed (${format}):`, formatError.message);
+                lastError = formatError;
+                // Continue to next format
+            }
+        }
+
+        if (!downloadSuccess) {
+            throw new Error(lastError?.message || 'All format options failed');
         }
 
         const stats = fs.statSync(outputPath);
-        console.log('✅ Video download completed. File size:', stats.size, 'bytes');
+        console.log('✅ Final video size:', stats.size, 'bytes');
 
-        // WhatsApp has ~16MB limit for videos
+        // WhatsApp has ~16MB limit for videos, but we'll try anyway
         if (stats.size > 16 * 1024 * 1024) {
-            fs.unlinkSync(outputPath);
-            await sock.sendMessage(chatId, { text: "❌ Video is too large for WhatsApp (max 16MB)." }, { quoted: msg });
-            return;
+            console.log('⚠️ Video is large but will attempt to send...');
         }
 
         await sock.sendMessage(chatId, { react: { text: "🎥", key: msg.key } });
 
-        // Step 6: Send video file
+        // Step 5: Send video file
         console.log('📤 Sending video file...');
-        await sock.sendMessage(chatId, {
-            video: fs.readFileSync(outputPath),
-            caption: `🎥 ${videoDetails.title}`,
-            fileName: `${videoDetails.title.substring(0, 50).replace(/[^\w\s.-]/gi, '')}.mp4`
-        }, { quoted: msg });
+        try {
+            await sock.sendMessage(chatId, {
+                video: fs.readFileSync(outputPath),
+                caption: `🎥 ${videoDetails.title}`,
+                fileName: `${videoDetails.title.substring(0, 50).replace(/[^\w\s.-]/gi, '')}.mp4`
+            }, { quoted: msg });
 
-        await sock.sendMessage(chatId, { react: { text: "✅", key: msg.key } });
-        console.log('🎉 Video sent successfully!');
+            await sock.sendMessage(chatId, { react: { text: "✅", key: msg.key } });
+            console.log('🎉 Video sent successfully!');
+        } catch (sendError) {
+            console.error('❌ Failed to send video:', sendError);
+            await sock.sendMessage(chatId, { 
+                text: "❌ Video is too large for WhatsApp. Try a shorter video." 
+            }, { quoted: msg });
+            await sock.sendMessage(chatId, { react: { text: "❌", key: msg.key } });
+        }
 
         // Cleanup
-        fs.unlinkSync(outputPath);
+        if (fs.existsSync(outputPath)) {
+            fs.unlinkSync(outputPath);
+        }
 
     } catch (err) {
         console.error('❌ Video command error:', err);
         
-        let errorMsg = "❌ An error occurred: ";
-        if (err.message.includes('Python')) {
-            errorMsg += "Python is required but not installed or not in PATH.";
-        } else if (err.message.includes('not found')) {
-            errorMsg += "Video not found.";
-        } else if (err.message.includes('too large')) {
-            errorMsg += "Video is too large for WhatsApp.";
+        let errorMsg = "❌ Failed to download video: ";
+        if (err.message.includes('Requested format is not available')) {
+            errorMsg += "Video format not supported. Try a different video.";
+        } else if (err.message.includes('Private video')) {
+            errorMsg += "This video is private or unavailable.";
+        } else if (err.message.includes('Sign in to confirm')) {
+            errorMsg += "This video is age-restricted and cannot be downloaded.";
+        } else if (err.message.includes('too long')) {
+            errorMsg += "Video is too long. Try a video under 10 minutes.";
         } else {
-            errorMsg += err.message;
+            errorMsg += "Try a different video or check the URL.";
         }
         
         await sock.sendMessage(chatId, { text: errorMsg }, { quoted: msg });
+        await sock.sendMessage(chatId, { react: { text: "❌", key: msg.key } });
     }
 }
-
-		
-// Translation Command
+	// Translation Command
 if (command === 'tr') {
     const targetLang = args[0]?.toLowerCase();
     const text = args.slice(1).join(' ');
 
     if (!targetLang || !text) {
         await sock.sendMessage(chatId, { 
-            text: '❌ *Usage:* .translate <language_code> <text>\n\n*Common Languages:*\n• .translate en Hello World (English)\n• .translate es Hola Mundo (Spanish)\n• .translate fr Bonjour (French)\n• .translate de Hallo (German)\n• .translate it Ciao (Italian)\n• .translate pt Olá (Portuguese)\n• .translate ru Привет (Russian)\n• .translate ar مرحبا (Arabic)\n• .translate hi नमस्ते (Hindi)\n• .translate zh 你好 (Chinese)\n• .translate ja こんにちは (Japanese)\n• .translate ko 안녕하세요 (Korean)\n\n*Full list:* https://cloud.google.com/translate/docs/languages' 
+            text: `❌ *Usage:* \\${currentPrefix}tr <language_code> <text>\n\n*Common Languages:*\n• \\${currentPrefix}tr en Hello World (English)\n• \\${currentPrefix}tr es Hola Mundo (Spanish)\n• \\${currentPrefix}tr fr Bonjour (French)\n• \\${currentPrefix}tr de Hallo (German)\n• \\${currentPrefix}tr it Ciao (Italian)\n• \\${currentPrefix}tr pt Olá (Portuguese)\n• \\${currentPrefix}tr ru Привет (Russian)\n• \\${currentPrefix}tr ar مرحبا (Arabic)\n• \\${currentPrefix}tr hi नमस्ते (Hindi)\n• \\${currentPrefix}tr zh 你好 (Chinese)\n• \\${currentPrefix}tr ja こんにちは (Japanese)\n• \\${currentPrefix}tr ko 안녕하세요 (Korean)\n\n*Full list:* https://cloud.google.com/translate/docs/languages` 
         }, { quoted: msg });
         return;
     }
@@ -2478,7 +3473,7 @@ if (command === 'tr') {
     } catch (error) {
         console.error('Translation Error:', error);
         await sock.sendMessage(chatId, { 
-            text: `❌ Translation failed: ${error.message}\n\n💡 *Possible issues:*\n• Invalid language code\n• Text too long\n• Translation service unavailable\n• Check language codes: https://cloud.google.com/translate/docs/languages` 
+            text: `❌ Translation failed: ${error.message}\n\n💡 *Possible issues:*\n• Invalid language code\n• Text too long\n• Translation service unavailable` 
         }, { quoted: msg });
         await sock.sendMessage(chatId, { react: { text: "❌", key: msg.key } });
     }
@@ -2490,7 +3485,7 @@ if (command === 'qtr') {
 
     if (!text) {
         await sock.sendMessage(chatId, { 
-            text: '❌ *Usage:* .qtranslate <text>\n\n*Translates to 5 common languages automatically*' 
+            text: `❌ *Usage:* \\${currentPrefix}qtr <text>\n\n*Translates to 5 common languages automatically*` 
         }, { quoted: msg });
         return;
     }
@@ -2536,7 +3531,7 @@ if (command === 'detectlang') {
 
     if (!text) {
         await sock.sendMessage(chatId, { 
-            text: '❌ *Usage:* .detectlang <text>\n\n*Detects the language of the provided text*' 
+            text: `❌ *Usage:* \\${currentPrefix}detectlang <text>\n\n*Detects the language of the provided text*` 
         }, { quoted: msg });
         return;
     }
@@ -2546,11 +3541,12 @@ if (command === 'detectlang') {
     try {
         // Use translation API to detect language
         const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=en&dt=t&q=${encodeURIComponent(text)}`;
-        const response = await axios.get(url);
+        const response = await fetch(url);
+        const data = await response.json();
         
         let detectedLang = 'Unknown';
-        if (response.data && response.data[2]) {
-            detectedLang = response.data[2]; // Language code
+        if (data && data[2]) {
+            detectedLang = data[2]; // Language code
         }
 
         // Get language name
@@ -2584,7 +3580,7 @@ if (command === 'mtr') {
 
     if (!languages || !text || languages.length === 0) {
         await sock.sendMessage(chatId, { 
-            text: '❌ *Usage:* .multitranslate <lang1,lang2,lang3> <text>\n\n*Example:* .multitranslate es,fr,de Hello World\n*Translates to Spanish, French, and German*' 
+            text: `❌ *Usage:* \\${currentPrefix}mtr <lang1,lang2,lang3> <text>\n\n*Example:* \\${currentPrefix}mtr es,fr,de Hello World\n*Translates to Spanish, French, and German*` 
         }, { quoted: msg });
         return;
     }
@@ -2616,15 +3612,13 @@ if (command === 'mtr') {
     }
 }
 
-		// File Search Commands
-const validFileTypes = ['pdf', 'doc', 'docx', 'ppt', 'pptx', 'xls', 'xlsx', 'txt'];
-
+// File Search Commands
 if (validFileTypes.includes(command)) {
     const query = args.join(" ").trim();
 
     if (!query) {
         await sock.sendMessage(chatId, { 
-            text: `❌ *Usage:* .${command} <search_query>\n\n*Examples:*\n.${command} research paper\n.${command} business plan template\n.${command} programming tutorial` 
+            text: `❌ *Usage:* \\${currentPrefix}${command} <search_query>\n\n*Examples:*\n\\${currentPrefix}${command} research paper\n\\${currentPrefix}${command} business plan template\n\\${currentPrefix}${command} programming tutorial` 
         }, { quoted: msg });
         return;
     }
@@ -2651,7 +3645,7 @@ if (command === 'filesearch' || command === 'fsearch') {
 
     if (!fileType || !searchQuery) {
         await sock.sendMessage(chatId, { 
-            text: `❌ *Usage:* .filesearch <file_type> <query>\n\n*Supported Types:* ${validFileTypes.join(', ')}\n\n*Examples:*\n.filesearch pdf machine learning\n.fsearch docx business proposal\n.filesearch ppt marketing presentation` 
+            text: `❌ *Usage:* \\${currentPrefix}filesearch <file_type> <query>\n\n*Supported Types:* ${validFileTypes.join(', ')}\n\n*Examples:*\n\\${currentPrefix}filesearch pdf machine learning\n\\${currentPrefix}fsearch docx business proposal\n\\${currentPrefix}filesearch ppt marketing presentation` 
         }, { quoted: msg });
         return;
     }
@@ -2678,84 +3672,54 @@ if (command === 'filesearch' || command === 'fsearch') {
     }
 }
 
-// Quick multi-format search
-if (command === 'quickfiles' || command === 'qfiles') {
-    const query = args.join(" ").trim();
-
-    if (!query) {
-        await sock.sendMessage(chatId, { 
-            text: '❌ *Usage:* .quickfiles <search_query>\n\n*Searches for PDF, DOC, and PPT files simultaneously*' 
-        }, { quoted: msg });
-        return;
-    }
-
-    await sock.sendMessage(chatId, { react: { text: "⚡", key: msg.key } });
-
-    try {
-        const { QuickFileSearch } = require('./controllers/FileSearch');
-        const results = await QuickFileSearch(query);
-        
-        let responseMessage = `⚡ *Quick File Search for "${query}"*\n\n`;
-        
-        for (const [fileType, result] of Object.entries(results)) {
-            responseMessage += `*${fileType.toUpperCase()} Files:*\n`;
-            if (typeof result === 'string' && result.includes('❌')) {
-                responseMessage += `${result}\n\n`;
-            } else {
-                // Extract first result from formatted string
-                const firstResult = result.split('\n').slice(0, 4).join('\n');
-                responseMessage += `${firstResult}\n\n`;
-            }
-        }
-
-        await sock.sendMessage(chatId, { text: responseMessage }, { quoted: msg });
-        await sock.sendMessage(chatId, { react: { text: "✅", key: msg.key } });
-    } catch (err) {
-        console.error('Quick Files Error:', err);
-        await sock.sendMessage(chatId, { 
-            text: '❌ Quick file search failed. Please try individual file searches.' 
-        }, { quoted: msg });
-        await sock.sendMessage(chatId, { react: { text: "❌", key: msg.key } });
-    }
-}
-		// Generate QRCode
-		if (command === 'qrcode') {
+// Generate QRCode
+if (command === 'qrcode') {
     const text = args.join(" ").trim();
 
     if (!text) {
-        await sock.sendMessage(chatId, { text: "❌ Please provide text to generate a QR code." }, { quoted: msg });
+        await sock.sendMessage(chatId, { 
+            text: `❌ Please provide text to generate a QR code.\n\nExample: \\${currentPrefix}qrcode Hello World` 
+        }, { quoted: msg });
         return;
     }
 
     await sock.sendMessage(chatId, { react: { text: "👨‍💻", key: msg.key } });
 
     try {
-        const qrPath = path.join(__dirname, '../upload/qrcode.png');
+        // Create upload directory if it doesn't exist
+        const uploadDir = path.join(__dirname, '../uploads');
+        if (!fs.existsSync(uploadDir)) {
+            fs.mkdirSync(uploadDir, { recursive: true });
+        }
+
+        const qrPath = path.join(uploadDir, `qrcode-${Date.now()}.png`);
         await QRCode.toFile(qrPath, text);
 
         await sock.sendMessage(chatId, {
-            image: { url: qrPath },
+            image: fs.readFileSync(qrPath),
             caption: `🔲 *QR Code Generated:*\n"${text}"`
         }, { quoted: msg });
 
-        fs.unlink(qrPath, (err) => {
-            if (err) console.error("⚠️ Failed to delete QR image:", err);
-        });
+        // Cleanup
+        fs.unlinkSync(qrPath);
 
         await sock.sendMessage(chatId, { react: { text: "✅", key: msg.key } });
     } catch (error) {
         console.error("❌ QR Code Error:", error);
+        await sock.sendMessage(chatId, { 
+            text: "❌ Failed to generate QR code." 
+        }, { quoted: msg });
         await sock.sendMessage(chatId, { react: { text: "❌", key: msg.key } });
     }
 }
 
-		// Mathematics 
-		if (command === 'math') {
+// Mathematics 
+if (command === 'math') {
     const expression = args.join(" ").trim();
 
     if (!expression) {
         await sock.sendMessage(chatId, {
-            text: "❌ Please provide a math expression.\n\n*Example:* `.math 2 + 3 * (4 - 1)`"
+            text: `❌ Please provide a math expression.\n\n*Example:* \\${currentPrefix}math 2 + 3 * (4 - 1)`
         }, { quoted: msg });
         return;
     }
@@ -2763,31 +3727,34 @@ if (command === 'quickfiles' || command === 'qfiles') {
     await sock.sendMessage(chatId, { react: { text: "👨‍💻", key: msg.key } });
 
     try {
+        // Safe math evaluation
         const result = calculateExpression(expression);
         await sock.sendMessage(chatId, {
-            text: `🧮 *Result:*\n\`\`\`${result}\`\`\``
+            text: `🧮 *Math Calculation*\n\n*Expression:* ${expression}\n*Result:* ${result}`
         }, { quoted: msg });
-        console.log(`✅ Math Result: ${result}`);
         await sock.sendMessage(chatId, { react: { text: "✅", key: msg.key } });
     } catch (error) {
         console.error('❌ Math Error:', error);
-        await sock.sendMessage(chatId, { text: "❌ Invalid expression." }, { quoted: msg });
+        await sock.sendMessage(chatId, { 
+            text: "❌ Invalid math expression." 
+        }, { quoted: msg });
         await sock.sendMessage(chatId, { react: { text: "❌", key: msg.key } });
     }
 }
 
 function calculateExpression(expression) {
-    const sanitized = expression.replace(/:/g, '/');
+    // Basic safe evaluation - replace with a proper math parser if needed
+    const sanitized = expression.replace(/[^0-9+\-*/().]/g, '');
     return eval(sanitized);
 }
-		
-		// Count Words
-		if (command === 'words') {
+
+// Count Words
+if (command === 'words') {
     const text = args.join(" ").trim();
 
     if (!text) {
         await sock.sendMessage(chatId, {
-            text: "❌ Please provide some text to analyze.\n\n*Example:* `.words Hello world!`"
+            text: `❌ Please provide some text to analyze.\n\n*Example:* \\${currentPrefix}words Hello world!`
         }, { quoted: msg });
         return;
     }
@@ -2804,32 +3771,31 @@ function calculateExpression(expression) {
 
         const responseMessage =
             '*📝 Text Analysis*\n\n' +
-            `- Words: ${wordCount}\n` +
-            `- Characters: ${characterCount}\n` +
-            `- Spaces: ${spaceCount}\n` +
-            `- Symbols: ${symbolCount}\n` +
-            `- Paragraphs: ${paragraphCount}\n` +
-            `- Numbers: ${numberCount}`;
+            `📊 *Words:* ${wordCount}\n` +
+            `🔤 *Characters:* ${characterCount}\n` +
+            `␣ *Spaces:* ${spaceCount}\n` +
+            `🔣 *Symbols:* ${symbolCount}\n` +
+            `📑 *Paragraphs:* ${paragraphCount}\n` +
+            `🔢 *Numbers:* ${numberCount}`;
 
         await sock.sendMessage(chatId, { text: responseMessage }, { quoted: msg });
-        console.log(`✅ Word analysis done.`);
         await sock.sendMessage(chatId, { react: { text: "✅", key: msg.key } });
 
     } catch (error) {
         console.error("❌ Word analysis error:", error);
-        await sock.sendMessage(chatId, { text: "❌ Error analyzing text." }, { quoted: msg });
+        await sock.sendMessage(chatId, { 
+            text: "❌ Error analyzing text." 
+        }, { quoted: msg });
         await sock.sendMessage(chatId, { react: { text: "❌", key: msg.key } });
     }
 }
-
-
 // SEO Check Command (Enhanced)
 if (command === 'seo') {
     const domain = args[0];
     
     if (!domain) {
         await sock.sendMessage(chatId, { 
-            text: '❌ *Usage:* .seo <domain>\n\n*Examples:*\n.seo google.com\n.seo example.com\n.seo github.com' 
+            text: `❌ *Usage:* \\${currentPrefix}seo <domain>\n\n*Examples:*\n\\${currentPrefix}seo google.com\n\\${currentPrefix}seo example.com\n\\${currentPrefix}seo github.com` 
         }, { quoted: msg });
         return;
     }
@@ -2844,24 +3810,25 @@ if (command === 'seo') {
         responseMessage += `🔗 *Indexable:* ${seoData.isIndexable ? '✅ Yes' : '❌ No'}\n\n`;
         
         // Character count analysis
-        const titleLength = seoData.title.length;
-        const descLength = seoData.metaDescription.length;
+        const titleLength = seoData.title?.length || 0;
+        const descLength = seoData.metaDescription?.length || 0;
         
-        responseMessage += `*📝 Title (${titleLength}/60):*\n${seoData.title}\n${titleLength > 60 ? '⚠️ *Too long!*' : '✅ *Good length*'}\n\n`;
+        responseMessage += `*📝 Title (${titleLength}/60):*\n${seoData.title || '❌ Not set'}\n${titleLength > 60 ? '⚠️ *Too long!*' : titleLength > 0 ? '✅ *Good length*' : '❌ *Missing!*'}\n\n`;
         
-        responseMessage += `*📄 Meta Description (${descLength}/160):*\n${seoData.metaDescription}\n${descLength > 160 ? '⚠️ *Too long!*' : '✅ *Good length*'}\n\n`;
+        responseMessage += `*📄 Meta Description (${descLength}/160):*\n${seoData.metaDescription || '❌ Not set'}\n${descLength > 160 ? '⚠️ *Too long!*' : descLength > 0 ? '✅ *Good length*' : '❌ *Missing!*'}\n\n`;
         
-        responseMessage += `*🏷️ Meta Keywords:*\n${seoData.metaKeywords}\n\n`;
-        responseMessage += `*📱 OG Title:*\n${seoData.ogTitle}\n\n`;
-        responseMessage += `*📱 OG Description:*\n${seoData.ogDescription}\n\n`;
+        responseMessage += `*🏷️ Meta Keywords:*\n${seoData.metaKeywords || '❌ Not set'}\n\n`;
+        responseMessage += `*📱 OG Title:*\n${seoData.ogTitle || '❌ Not set'}\n\n`;
+        responseMessage += `*📱 OG Description:*\n${seoData.ogDescription || '❌ Not set'}\n\n`;
         responseMessage += `*🖼️ OG Image:*\n${seoData.ogImage || '❌ Not set'}\n\n`;
-        responseMessage += `*🔗 Canonical URL:*\n${seoData.canonicalUrl}\n\n`;
+        responseMessage += `*🔗 Canonical URL:*\n${seoData.canonicalUrl || '❌ Not set'}\n\n`;
         
         // Quick assessment
         responseMessage += `💡 *Quick Assessment:*\n`;
-        if (parseFloat(seoData.seoSuccessRate) > 70) {
+        const score = parseFloat(seoData.seoSuccessRate) || 0;
+        if (score > 70) {
             responseMessage += `✅ Good SEO foundation\n`;
-        } else if (parseFloat(seoData.seoSuccessRate) > 40) {
+        } else if (score > 40) {
             responseMessage += `⚠️ Needs improvement\n`;
         } else {
             responseMessage += `❌ Poor SEO setup\n`;
@@ -2886,130 +3853,23 @@ if (command === 'seo') {
     }
 }
 
-// SEO Roasting Command (Enhanced)
-if (command === 'seo-roast') {
-    const domain = args[0];
+// Helper function to split long messages
+function splitLongMessage(text, maxLength) {
+    const parts = [];
+    let currentPart = '';
     
-    if (!domain) {
-        await sock.sendMessage(chatId, {
-            text: "❌ *Usage:* .seo-roast <domain>\n\n*Example:* .seo-roast example.com"
-        }, { quoted: msg });
-        return;
-    }
-
-    await sock.sendMessage(chatId, { react: { text: "🔥", key: msg.key } });
-
-    try {
-        const seoData = await CheckSEO(domain);
-        
-        // Create a more detailed report for roasting
-        const seoReport = 
-            `🌐 *Website SEO Report for ${domain}*\n\n` +
-            `📊 SEO Success Rate: ${seoData.seoSuccessRate}\n` +
-            `🔍 Indexable: ${seoData.isIndexable ? 'Yes' : 'No'}\n\n` +
-            `📝 *Title Analysis:*\n` +
-            `- Title: "${seoData.title}"\n` +
-            `- Length: ${seoData.title.length}/60 characters\n` +
-            `- Status: ${seoData.title.length > 60 ? 'TOO LONG' : 'OK'}\n\n` +
-            `📄 *Meta Description:*\n` +
-            `- Description: "${seoData.metaDescription}"\n` +
-            `- Length: ${seoData.metaDescription.length}/160 characters\n` +
-            `- Status: ${seoData.metaDescription.length > 160 ? 'TOO LONG' : 'OK'}\n\n` +
-            `🏷️ *Keywords:* ${seoData.metaKeywords || 'None set'}\n\n` +
-            `📱 *Social Media:*\n` +
-            `- OG Title: ${seoData.ogTitle || 'Missing'}\n` +
-            `- OG Description: ${seoData.ogDescription || 'Missing'}\n` +
-            `- OG Image: ${seoData.ogImage || 'Missing'}\n\n` +
-            `🔗 *Technical:*\n` +
-            `- Canonical URL: ${seoData.canonicalUrl || 'Not set'}\n` +
-            `- Overall Grade: ${parseFloat(seoData.seoSuccessRate) > 70 ? 'C' : parseFloat(seoData.seoSuccessRate) > 40 ? 'D' : 'F'}`;
-
-        // Roast prompt with specific instructions
-        const roastPrompt = `Roast this website's SEO in a funny, sarcastic way. Focus on the specific issues found. Be brutally honest but entertaining. Here's the SEO report:\n\n${seoReport}`;
-
-        const seoRoast = await GeminiRoastingMessage(roastPrompt);
-
-        const finalMessage = `🔥 *SEO Roast for ${domain}*\n\n${seoRoast.trim()}\n\n💡 *Remember:* This is just for fun! Use .seo for serious analysis.`;
-
-        await sock.sendMessage(chatId, { text: finalMessage }, { quoted: msg });
-        await sock.sendMessage(chatId, { react: { text: "✅", key: msg.key } });
-        
-    } catch (error) {
-        console.error("❌ SEO Roast Error:", error);
-        await sock.sendMessage(chatId, { 
-            text: `❌ Failed to roast ${domain}: ${error.message}\n\n💡 Make sure the domain is accessible.` 
-        }, { quoted: msg });
-        await sock.sendMessage(chatId, { react: { text: "❌", key: msg.key } });
-    }
-}
-
-// Quick SEO Comparison Command
-if (command === 'seo-compare') {
-    const domains = args;
-    
-    if (domains.length < 2) {
-        await sock.sendMessage(chatId, { 
-            text: '❌ *Usage:* .seo-compare <domain1> <domain2> [domain3...]\n\n*Example:* .seo-compare google.com bing.com duckduckgo.com' 
-        }, { quoted: msg });
-        return;
-    }
-
-    await sock.sendMessage(chatId, { react: { text: "📊", key: msg.key } });
-
-    try {
-        let comparisonMessage = `📊 *SEO Comparison*\n\n`;
-        
-        for (const domain of domains.slice(0, 3)) { // Limit to 3 domains
-            try {
-                const seoData = await CheckSEO(domain);
-                comparisonMessage += `*${domain}*\n`;
-                comparisonMessage += `📊 Score: ${seoData.seoSuccessRate}\n`;
-                comparisonMessage += `🔗 Indexable: ${seoData.isIndexable ? '✅' : '❌'}\n`;
-                comparisonMessage += `📝 Title: ${seoData.title.length}/60 chars\n`;
-                comparisonMessage += `📄 Desc: ${seoData.metaDescription.length}/160 chars\n`;
-                comparisonMessage += `📱 OG Tags: ${seoData.ogTitle ? '✅' : '❌'}\n\n`;
-            } catch (error) {
-                comparisonMessage += `*${domain}*\n❌ Failed to analyze\n\n`;
-            }
+    const sentences = text.split('\n');
+    for (const sentence of sentences) {
+        if ((currentPart + sentence).length > maxLength) {
+            if (currentPart) parts.push(currentPart.trim());
+            currentPart = sentence + '\n';
+        } else {
+            currentPart += sentence + '\n';
         }
-        
-        comparisonMessage += `💡 *Tip:* Higher scores generally indicate better SEO setup.`;
-
-        await sock.sendMessage(chatId, { text: comparisonMessage }, { quoted: msg });
-        await sock.sendMessage(chatId, { react: { text: "✅", key: msg.key } });
-        
-    } catch (error) {
-        console.error('SEO Compare Error:', error);
-        await sock.sendMessage(chatId, { 
-            text: '❌ SEO comparison failed. Check domain accessibility.' 
-        }, { quoted: msg });
-        await sock.sendMessage(chatId, { react: { text: "❌", key: msg.key } });
     }
-}
-		
-		
-// Search Country Detail
-	if (command === 'country') {
-    const countryName = args.join(" ").trim();
-
-    if (!countryName) {
-        await sock.sendMessage(chatId, {
-            text: "❌ Please provide a country name.\n\n*Example:* `.country Nigeria`"
-        }, { quoted: msg });
-        return;
-    }
-
-    await sock.sendMessage(chatId, { react: { text: "👨‍💻", key: msg.key } });
-
-    try {
-        const info = await Country(countryName);
-        await sock.sendMessage(chatId, { text: info }, { quoted: msg });
-        console.log("✅ Country data sent.");
-        await sock.sendMessage(chatId, { react: { text: "✅", key: msg.key } });
-    } catch (err) {
-        console.error("❌ Country Error:", err);
-        await sock.sendMessage(chatId, { react: { text: "❌", key: msg.key } });
-    }
+    
+    if (currentPart) parts.push(currentPart.trim());
+    return parts;
 }
 
 // Bible Chapter Command
@@ -3019,7 +3879,7 @@ if (command === 'bible') {
 
     if (!book || !chapter || isNaN(chapter)) {
         await sock.sendMessage(chatId, { 
-            text: '❌ *Usage:* .bible <book> <chapter>\n\n*Examples:*\n.bible john 3\n.bible psalms 23\n.bible genesis 1\n.bible matthew 5\n\n💡 *Tip:* Use .biblebooks to see all books' 
+            text: `❌ *Usage:* \\${currentPrefix}bible <book> <chapter>\n\n*Examples:*\n\\${currentPrefix}bible john 3\n\\${currentPrefix}bible psalms 23\n\\${currentPrefix}bible genesis 1\n\\${currentPrefix}bible matthew 5\n\n💡 *Tip:* Use \\${currentPrefix}biblebooks to see all books` 
         }, { quoted: msg });
         return;
     }
@@ -3027,7 +3887,7 @@ if (command === 'bible') {
     await sock.sendMessage(chatId, { react: { text: "📖", key: msg.key } });
 
     try {
-        const { Bible } = require('../controllers/Bible');
+        const { Bible } = require('./Bible'); // Fixed path
         const bibleText = await Bible(book, chapter);
         
         // Split long messages
@@ -3062,7 +3922,7 @@ if (command === 'bibleverse') {
 
     if (!book || !chapter || !verse || isNaN(chapter) || isNaN(verse)) {
         await sock.sendMessage(chatId, { 
-            text: '❌ *Usage:* .bibleverse <book> <chapter> <verse>\n\n*Examples:*\n.bibleverse john 3 16\n.bibleverse psalms 23 1\n.bibleverse romans 8 28\n.verse philippians 4 13' 
+            text: `❌ *Usage:* \\${currentPrefix}bibleverse <book> <chapter> <verse>\n\n*Examples:*\n\\${currentPrefix}bibleverse john 3 16\n\\${currentPrefix}bibleverse psalms 23 1\n\\${currentPrefix}bibleverse romans 8 28` 
         }, { quoted: msg });
         return;
     }
@@ -3070,7 +3930,7 @@ if (command === 'bibleverse') {
     await sock.sendMessage(chatId, { react: { text: "🎯", key: msg.key } });
 
     try {
-        const { BibleVerse } = require('../controllers/Bible');
+        const { BibleVerse } = require('./Bible'); // Fixed path
         const verseText = await BibleVerse(book, chapter, verse);
         
         await sock.sendMessage(chatId, { text: verseText }, { quoted: msg });
@@ -3091,7 +3951,7 @@ if (command === 'biblesearch') {
 
     if (!query) {
         await sock.sendMessage(chatId, { 
-            text: '❌ *Usage:* .biblesearch <search_query>\n\n*Examples:*\n.biblesearch love\n.biblesearch faith hope\n.bsearch Jesus said\n.bsearch peace of God' 
+            text: `❌ *Usage:* \\${currentPrefix}biblesearch <search_query>\n\n*Examples:*\n\\${currentPrefix}biblesearch love\n\\${currentPrefix}biblesearch faith hope\n\\${currentPrefix}biblesearch peace of God` 
         }, { quoted: msg });
         return;
     }
@@ -3099,7 +3959,7 @@ if (command === 'biblesearch') {
     await sock.sendMessage(chatId, { react: { text: "🔍", key: msg.key } });
 
     try {
-        const { BibleSearch } = require('../controllers/Bible');
+        const { BibleSearch } = require('./Bible'); // Fixed path
         const searchResults = await BibleSearch(query);
         
         await sock.sendMessage(chatId, { text: searchResults }, { quoted: msg });
@@ -3119,7 +3979,7 @@ if (command === 'randomverse') {
     await sock.sendMessage(chatId, { react: { text: "🎲", key: msg.key } });
 
     try {
-        const { RandomBibleVerse } = require('../controllers/Bible');
+        const { RandomBibleVerse } = require('./Bible'); // Fixed path
         const randomVerse = await RandomBibleVerse();
         
         await sock.sendMessage(chatId, { text: randomVerse }, { quoted: msg });
@@ -3139,7 +3999,7 @@ if (command === 'biblebooks') {
     const testament = args[0]?.toLowerCase();
 
     try {
-        const { bibleBooks } = require('../controllers/Bible');
+        const { bibleBooks } = require('./Bible'); // Fixed path
         
         let responseMessage = '📖 *Bible Books*\n\n';
 
@@ -3158,7 +4018,7 @@ if (command === 'biblebooks') {
             });
         }
 
-        responseMessage += '\n💡 *Usage:* .bible <book_name> <chapter>';
+        responseMessage += `\n💡 *Usage:* \\${currentPrefix}bible <book_name> <chapter>`;
 
         await sock.sendMessage(chatId, { text: responseMessage }, { quoted: msg });
 
@@ -3194,7 +4054,7 @@ if (command === 'popularverses') {
 *7. Isaiah 41:10*
 "So do not fear, for I am with you..."
 
-💡 *Get any verse:* .bibleverse book chapter verse`;
+💡 *Get any verse:* \\${currentPrefix}bibleverse book chapter verse`;
 
     await sock.sendMessage(chatId, { text: popularList }, { quoted: msg });
 }
@@ -3205,7 +4065,7 @@ if (command === 'surah') {
 
     if (!surahId || isNaN(surahId) || surahId < 1 || surahId > 114) {
         await sock.sendMessage(chatId, { 
-            text: '❌ *Usage:* .surah <surah_number>\n\n*Surah Numbers:* 1-114\n\n*Examples:*\n.surah 1  (Al-Fatihah)\n.surah 2  (Al-Baqarah)\n.surah 36 (Ya-Sin)\n.surah 112 (Al-Ikhlas)\n\n💡 *Tip:* Use .surahlist to see all surah names and numbers' 
+            text: `❌ *Usage:* \\${currentPrefix}surah <surah_number>\n\n*Surah Numbers:* 1-114\n\n*Examples:*\n\\${currentPrefix}surah 1  (Al-Fatihah)\n\\${currentPrefix}surah 2  (Al-Baqarah)\n\\${currentPrefix}surah 36 (Ya-Sin)\n\\${currentPrefix}surah 112 (Al-Ikhlas)\n\n💡 *Tip:* Use \\${currentPrefix}surahlist to see all surah names and numbers` 
         }, { quoted: msg });
         return;
     }
@@ -3238,7 +4098,6 @@ if (command === 'surah') {
         await sock.sendMessage(chatId, { react: { text: "❌", key: msg.key } });
     }
 }
-
 // Ayah Command - Get specific verse
 if (command === 'verse') {
     const surahId = args[0];
@@ -3246,7 +4105,7 @@ if (command === 'verse') {
 
     if (!surahId || !ayahId || isNaN(surahId) || isNaN(ayahId) || surahId < 1 || surahId > 114) {
         await sock.sendMessage(chatId, { 
-            text: '❌ *Usage:* .ayah <surah_number> <verse_number>\n\n*Examples:*\n.ayah 1 1  (Al-Fatihah:1)\n.ayah 2 255 (Ayat Kursi)\n.ayah 36 1  (Ya-Sin:1)\n.ayah 112 1 (Al-Ikhlas:1)' 
+            text: `❌ *Usage:* \\${currentPrefix}verse <surah_number> <verse_number>\n\n*Examples:*\n\\${currentPrefix}verse 1 1  (Al-Fatihah:1)\n\\${currentPrefix}verse 2 255 (Ayat Kursi)\n\\${currentPrefix}verse 36 1  (Ya-Sin:1)\n\\${currentPrefix}verse 112 1 (Al-Ikhlas:1)` 
         }, { quoted: msg });
         return;
     }
@@ -3256,7 +4115,7 @@ if (command === 'verse') {
     try {
         const ayahText = await SurahDetails(surahId, parseInt(ayahId));
         
-        if (ayahText === 'Surah Not available') {
+        if (ayahText === 'Surah Not available' || !ayahText) {
             await sock.sendMessage(chatId, { 
                 text: `❌ Ayah ${ayahId} not found in Surah ${surahId}\n\n💡 Check if the verse number exists in that surah.` 
             }, { quoted: msg });
@@ -3279,9 +4138,10 @@ if (command === 'verse') {
 // Surah List Command
 if (command === 'surahlist') {
     const page = parseInt(args[0]) || 1;
-    const surahsPerPage = 10;
+    const surahsPerPage = 15; // Increased for better display
 
     try {
+        // Complete list of all 114 surahs
         const surahList = [
             { number: 1, latin: "Al-Fatihah", translation: "Pembukaan", verses: 7 },
             { number: 2, latin: "Al-Baqarah", translation: "Sapi Betina", verses: 286 },
@@ -3293,10 +4153,107 @@ if (command === 'surahlist') {
             { number: 8, latin: "Al-Anfal", translation: "Rampasan Perang", verses: 75 },
             { number: 9, latin: "At-Taubah", translation: "Pengampunan", verses: 129 },
             { number: 10, latin: "Yunus", translation: "Yunus", verses: 109 },
-            // Add more surahs as needed...
+            { number: 11, latin: "Hud", translation: "Hud", verses: 123 },
+            { number: 12, latin: "Yusuf", translation: "Yusuf", verses: 111 },
+            { number: 13, latin: "Ar-Ra'd", translation: "Guruh", verses: 43 },
+            { number: 14, latin: "Ibrahim", translation: "Ibrahim", verses: 52 },
+            { number: 15, latin: "Al-Hijr", translation: "Hijr", verses: 99 },
+            { number: 16, latin: "An-Nahl", translation: "Lebah", verses: 128 },
+            { number: 17, latin: "Al-Isra", translation: "Perjalanan Malam", verses: 111 },
+            { number: 18, latin: "Al-Kahf", translation: "Gua", verses: 110 },
+            { number: 19, latin: "Maryam", translation: "Maryam", verses: 98 },
+            { number: 20, latin: "Taha", translation: "Taha", verses: 135 },
+            { number: 21, latin: "Al-Anbiya", translation: "Para Nabi", verses: 112 },
+            { number: 22, latin: "Al-Hajj", translation: "Haji", verses: 78 },
+            { number: 23, latin: "Al-Mu'minun", translation: "Orang-Orang Mukmin", verses: 118 },
+            { number: 24, latin: "An-Nur", translation: "Cahaya", verses: 64 },
+            { number: 25, latin: "Al-Furqan", translation: "Pembeda", verses: 77 },
+            { number: 26, latin: "Asy-Syu'ara", translation: "Penyair", verses: 227 },
+            { number: 27, latin: "An-Naml", translation: "Semut", verses: 93 },
+            { number: 28, latin: "Al-Qasas", translation: "Kisah-Kisah", verses: 88 },
+            { number: 29, latin: "Al-'Ankabut", translation: "Laba-Laba", verses: 69 },
+            { number: 30, latin: "Ar-Rum", translation: "Bangsa Romawi", verses: 60 },
+            { number: 31, latin: "Luqman", translation: "Luqman", verses: 34 },
+            { number: 32, latin: "As-Sajdah", translation: "Sajdah", verses: 30 },
+            { number: 33, latin: "Al-Ahzab", translation: "Golongan yang Bersekutu", verses: 73 },
+            { number: 34, latin: "Saba", translation: "Saba'", verses: 54 },
+            { number: 35, latin: "Fatir", translation: "Pencipta", verses: 45 },
             { number: 36, latin: "Ya-Sin", translation: "Ya Sin", verses: 83 },
+            { number: 37, latin: "As-Saffat", translation: "Barisan-Barisan", verses: 182 },
+            { number: 38, latin: "Sad", translation: "Sad", verses: 88 },
+            { number: 39, latin: "Az-Zumar", translation: "Rombongan", verses: 75 },
+            { number: 40, latin: "Ghafir", translation: "Yang Mengampuni", verses: 85 },
+            { number: 41, latin: "Fussilat", translation: "Yang Dijelaskan", verses: 54 },
+            { number: 42, latin: "Asy-Syura", translation: "Musyawarah", verses: 53 },
+            { number: 43, latin: "Az-Zukhruf", translation: "Perhiasan", verses: 89 },
+            { number: 44, latin: "Ad-Dukhan", translation: "Kabut", verses: 59 },
+            { number: 45, latin: "Al-Jasiyah", translation: "Yang Bertekuk Lutut", verses: 37 },
+            { number: 46, latin: "Al-Ahqaf", translation: "Bukit-Bukit Pasir", verses: 35 },
+            { number: 47, latin: "Muhammad", translation: "Muhammad", verses: 38 },
+            { number: 48, latin: "Al-Fath", translation: "Kemenangan", verses: 29 },
+            { number: 49, latin: "Al-Hujurat", translation: "Kamar-Kamar", verses: 18 },
+            { number: 50, latin: "Qaf", translation: "Qaf", verses: 45 },
+            { number: 51, latin: "Az-Zariyat", translation: "Angin yang Menerbangkan", verses: 60 },
+            { number: 52, latin: "At-Tur", translation: "Bukit", verses: 49 },
+            { number: 53, latin: "An-Najm", translation: "Bintang", verses: 62 },
+            { number: 54, latin: "Al-Qamar", translation: "Bulan", verses: 55 },
             { number: 55, latin: "Ar-Rahman", translation: "Maha Pengasih", verses: 78 },
+            { number: 56, latin: "Al-Waqi'ah", translation: "Hari Kiamat", verses: 96 },
+            { number: 57, latin: "Al-Hadid", translation: "Besi", verses: 29 },
+            { number: 58, latin: "Al-Mujadilah", translation: "Wanita yang Mengajukan Gugatan", verses: 22 },
+            { number: 59, latin: "Al-Hasyr", translation: "Pengusiran", verses: 24 },
+            { number: 60, latin: "Al-Mumtahanah", translation: "Wanita yang Diuji", verses: 13 },
+            { number: 61, latin: "As-Saff", translation: "Barisan", verses: 14 },
+            { number: 62, latin: "Al-Jumu'ah", translation: "Jumat", verses: 11 },
+            { number: 63, latin: "Al-Munafiqun", translation: "Orang-Orang Munafik", verses: 11 },
+            { number: 64, latin: "At-Tagabun", translation: "Hari Dinampakkan Kesalahan-Kesalahan", verses: 18 },
+            { number: 65, latin: "At-Talaq", translation: "Talak", verses: 12 },
+            { number: 66, latin: "At-Tahrim", translation: "Mengharamkan", verses: 12 },
             { number: 67, latin: "Al-Mulk", translation: "Kerajaan", verses: 30 },
+            { number: 68, latin: "Al-Qalam", translation: "Pena", verses: 52 },
+            { number: 69, latin: "Al-Haqqah", translation: "Hari Kiamat", verses: 52 },
+            { number: 70, latin: "Al-Ma'arij", translation: "Tempat Naik", verses: 44 },
+            { number: 71, latin: "Nuh", translation: "Nuh", verses: 28 },
+            { number: 72, latin: "Al-Jinn", translation: "Jin", verses: 28 },
+            { number: 73, latin: "Al-Muzzammil", translation: "Orang yang Berselimut", verses: 20 },
+            { number: 74, latin: "Al-Muddassir", translation: "Orang yang Berkemul", verses: 56 },
+            { number: 75, latin: "Al-Qiyamah", translation: "Hari Kiamat", verses: 40 },
+            { number: 76, latin: "Al-Insan", translation: "Manusia", verses: 31 },
+            { number: 77, latin: "Al-Mursalat", translation: "Malaikat yang Diutus", verses: 50 },
+            { number: 78, latin: "An-Naba", translation: "Berita Besar", verses: 40 },
+            { number: 79, latin: "An-Nazi'at", translation: "Malaikat yang Mencabut", verses: 46 },
+            { number: 80, latin: "'Abasa", translation: "Ia Bermuka Masam", verses: 42 },
+            { number: 81, latin: "At-Takwir", translation: "Menggulung", verses: 29 },
+            { number: 82, latin: "Al-Infitar", translation: "Terbelah", verses: 19 },
+            { number: 83, latin: "Al-Mutaffifin", translation: "Orang-Orang yang Curang", verses: 36 },
+            { number: 84, latin: "Al-Insyiqaq", translation: "Terbelah", verses: 25 },
+            { number: 85, latin: "Al-Buruj", translation: "Gugusan Bintang", verses: 22 },
+            { number: 86, latin: "At-Tariq", translation: "Yang Datang di Malam Hari", verses: 17 },
+            { number: 87, latin: "Al-A'la", translation: "Maha Tinggi", verses: 19 },
+            { number: 88, latin: "Al-Gasyiyah", translation: "Hari Pembalasan", verses: 26 },
+            { number: 89, latin: "Al-Fajr", translation: "Fajar", verses: 30 },
+            { number: 90, latin: "Al-Balad", translation: "Negeri", verses: 20 },
+            { number: 91, latin: "Asy-Syams", translation: "Matahari", verses: 15 },
+            { number: 92, latin: "Al-Lail", translation: "Malam", verses: 21 },
+            { number: 93, latin: "Ad-Duha", translation: "Duha", verses: 11 },
+            { number: 94, latin: "Al-Insyirah", translation: "Kelapangan", verses: 8 },
+            { number: 95, latin: "At-Tin", translation: "Buah Tin", verses: 8 },
+            { number: 96, latin: "Al-'Alaq", translation: "Segumpal Darah", verses: 19 },
+            { number: 97, latin: "Al-Qadr", translation: "Kemuliaan", verses: 5 },
+            { number: 98, latin: "Al-Bayyinah", translation: "Bukti", verses: 8 },
+            { number: 99, latin: "Az-Zalzalah", translation: "Kegoncangan", verses: 8 },
+            { number: 100, latin: "Al-'Adiyat", translation: "Kuda yang Berlari Kencang", verses: 11 },
+            { number: 101, latin: "Al-Qari'ah", translation: "Hari Kiamat", verses: 11 },
+            { number: 102, latin: "At-Takasur", translation: "Bermegah-Megahan", verses: 8 },
+            { number: 103, latin: "Al-Asr", translation: "Asar", verses: 3 },
+            { number: 104, latin: "Al-Humazah", translation: "Pengumpat", verses: 9 },
+            { number: 105, latin: "Al-Fil", translation: "Gajah", verses: 5 },
+            { number: 106, latin: "Quraisy", translation: "Quraisy", verses: 4 },
+            { number: 107, latin: "Al-Ma'un", translation: "Barang-Barang yang Berguna", verses: 7 },
+            { number: 108, latin: "Al-Kausar", translation: "Nikmat yang Banyak", verses: 3 },
+            { number: 109, latin: "Al-Kafirun", translation: "Orang-Orang kafir", verses: 6 },
+            { number: 110, latin: "An-Nasr", translation: "Pertolongan", verses: 3 },
+            { number: 111, latin: "Al-Lahab", translation: "Gejolak Api", verses: 5 },
             { number: 112, latin: "Al-Ikhlas", translation: "Ikhlas", verses: 4 },
             { number: 113, latin: "Al-Falaq", translation: "Subuh", verses: 5 },
             { number: 114, latin: "An-Nas", translation: "Manusia", verses: 6 }
@@ -3313,15 +4270,15 @@ if (command === 'surahlist') {
             return;
         }
 
-        let responseMessage = `📖 *Surah List - Page ${page}*\n\n`;
+        let responseMessage = `📖 *Surah List - Page ${page}/${Math.ceil(surahList.length / surahsPerPage)}*\n\n`;
         
         pageSurahs.forEach(surah => {
-            responseMessage += `${surah.number}. ${surah.latin}\n`;
+            responseMessage += `*${surah.number}.* ${surah.latin}\n`;
             responseMessage += `   ${surah.translation} (${surah.verses} verses)\n\n`;
         });
 
-        responseMessage += `📄 Page ${page} of ${Math.ceil(surahList.length / surahsPerPage)}\n`;
-        responseMessage += `💡 Use: .surahlist ${page + 1} for next page`;
+        responseMessage += `💡 *Usage:* \\${currentPrefix}surahlist ${page + 1} for next page\n`;
+        responseMessage += `📚 *Total:* 114 surahs`;
 
         await sock.sendMessage(chatId, { text: responseMessage }, { quoted: msg });
 
@@ -3338,18 +4295,37 @@ if (command === 'randomverse') {
     await sock.sendMessage(chatId, { react: { text: "🎲", key: msg.key } });
 
     try {
-        // Generate random surah (1-114) and random ayah
+        // Generate random surah (1-114)
         const randomSurah = Math.floor(Math.random() * 114) + 1;
         
-        // Get surah info to know max verses
-        const response = await axios.get(`https://web-api.qurankemenag.net/quran-ayah?surah=${randomSurah}`);
-        const surahData = response.data.data;
-        const maxAyah = surahData.length;
-        const randomAyah = Math.floor(Math.random() * maxAyah) + 1;
+        // Use popular verses to avoid API issues
+        const popularAyahs = {
+            1: [1, 2, 3, 4, 5, 6, 7], // Al-Fatihah
+            2: [255], // Ayat Kursi
+            36: [1, 2, 3], // Ya-Sin
+            55: [1, 2, 3], // Ar-Rahman
+            67: [1, 2, 3], // Al-Mulk
+            112: [1, 2, 3, 4], // Al-Ikhlas
+            113: [1, 2, 3, 4, 5], // Al-Falaq
+            114: [1, 2, 3, 4, 5, 6] // An-Nas
+        };
+
+        let randomAyah;
+        if (popularAyahs[randomSurah]) {
+            const ayahs = popularAyahs[randomSurah];
+            randomAyah = ayahs[Math.floor(Math.random() * ayahs.length)];
+        } else {
+            // Fallback to first verse
+            randomAyah = 1;
+        }
 
         const ayahText = await SurahDetails(randomSurah, randomAyah);
         
-        const responseMessage = `🎲 *Random Ayah*\n\n${ayahText}\n\n💡 Use .ayah ${randomSurah} ${randomAyah} to get this verse again`;
+        if (!ayahText || ayahText === 'Surah Not available') {
+            throw new Error('Verse not available');
+        }
+
+        const responseMessage = `🎲 *Random Ayah*\n\n${ayahText}\n\n💡 Use \\${currentPrefix}verse ${randomSurah} ${randomAyah} to get this verse again`;
 
         await sock.sendMessage(chatId, { text: responseMessage }, { quoted: msg });
         await sock.sendMessage(chatId, { react: { text: "✅", key: msg.key } });
@@ -3357,38 +4333,18 @@ if (command === 'randomverse') {
     } catch (error) {
         console.error('Random Ayah Error:', error);
         await sock.sendMessage(chatId, { 
-            text: '❌ Failed to fetch random ayah.' 
+            text: '❌ Failed to fetch random ayah. Please try again.' 
         }, { quoted: msg });
         await sock.sendMessage(chatId, { react: { text: "❌", key: msg.key } });
     }
 }
-
-// Helper function to split long messages
-function splitLongMessage(text, maxLength) {
-    const parts = [];
-    const lines = text.split('\n');
-    let currentPart = '';
-    
-    for (const line of lines) {
-        if ((currentPart + line + '\n').length > maxLength) {
-            if (currentPart) parts.push(currentPart.trim());
-            currentPart = line + '\n';
-        } else {
-            currentPart += line + '\n';
-        }
-    }
-    
-    if (currentPart) parts.push(currentPart.trim());
-    return parts;
-}
-
 // Weather
 if (command === 'weather') {
     const cityName = args.join(' ');
 
     if (!cityName) {
         await sock.sendMessage(chatId, { 
-            text: '❌ *Usage:* .weather <city_name>\n\n*Examples:*\n.weather London\n.weather New York\n.weather Tokyo\n.weather Jakarta\n.cuaca Bandung' 
+            text: `❌ *Usage:* \\${currentPrefix}weather <city_name>\n\n*Examples:*\n\\${currentPrefix}weather London\n\\${currentPrefix}weather New York\n\\${currentPrefix}weather Tokyo\n\\${currentPrefix}weather Jakarta` 
         }, { quoted: msg });
         return;
     }
@@ -3422,7 +4378,7 @@ if (command === 'weather-detail') {
 
     if (!cityName) {
         await sock.sendMessage(chatId, { 
-            text: '❌ *Usage:* .weather-detail <city_name>\n\n*Shows detailed weather forecast*' 
+            text: `❌ *Usage:* \\${currentPrefix}weather-detail <city_name>\n\n*Shows detailed weather forecast*` 
         }, { quoted: msg });
         return;
     }
@@ -3430,20 +4386,26 @@ if (command === 'weather-detail') {
     await sock.sendMessage(chatId, { react: { text: "📊", key: msg.key } });
 
     try {
-        // Get more detailed weather data
-        const detailUrl = `https://wttr.in/${cityName}?format=%t|%C|%w|%h|%p|%P|%u|%m&lang=id&m`;
-        const response = await axios.get(detailUrl);
-        const weatherParts = response.data.split('|');
+        // Get more detailed weather data using fetch instead of axios
+        const detailUrl = `https://wttr.in/${encodeURIComponent(cityName)}?format=%t|%C|%w|%h|%p|%P|%u|%m&lang=id&m`;
+        const response = await fetch(detailUrl);
+        
+        if (!response.ok) {
+            throw new Error('Weather service unavailable');
+        }
+        
+        const weatherData = await response.text();
+        const weatherParts = weatherData.split('|');
 
         const responseMessage = `📊 *Detailed Weather - ${cityName}*\n\n` +
-                               `🌡️ *Temperature:* ${weatherParts[0].trim()}\n` +
-                               `☁️ *Condition:* ${weatherParts[1].trim()}\n` +
-                               `💨 *Wind:* ${weatherParts[2].trim()}\n` +
-                               `💧 *Humidity:* ${weatherParts[3].trim()}\n` +
-                               `🌧️ *Precipitation:* ${weatherParts[4].trim()}\n` +
-                               `💨 *Pressure:* ${weatherParts[5].trim()}\n` +
-                               `👁️ *UV Index:* ${weatherParts[6].trim()}\n` +
-                               `🌙 *Moon Phase:* ${weatherParts[7].trim()}`;
+                               `🌡️ *Temperature:* ${weatherParts[0]?.trim() || 'N/A'}\n` +
+                               `☁️ *Condition:* ${weatherParts[1]?.trim() || 'N/A'}\n` +
+                               `💨 *Wind:* ${weatherParts[2]?.trim() || 'N/A'}\n` +
+                               `💧 *Humidity:* ${weatherParts[3]?.trim() || 'N/A'}\n` +
+                               `🌧️ *Precipitation:* ${weatherParts[4]?.trim() || 'N/A'}\n` +
+                               `💨 *Pressure:* ${weatherParts[5]?.trim() || 'N/A'}\n` +
+                               `👁️ *UV Index:* ${weatherParts[6]?.trim() || 'N/A'}\n` +
+                               `🌙 *Moon Phase:* ${weatherParts[7]?.trim() || 'N/A'}`;
 
         await sock.sendMessage(chatId, { text: responseMessage }, { quoted: msg });
         await sock.sendMessage(chatId, { react: { text: "✅", key: msg.key } });
@@ -3463,7 +4425,7 @@ if (command === 'forecast') {
 
     if (!cityName) {
         await sock.sendMessage(chatId, { 
-            text: '❌ *Usage:* .forecast <city_name>\n\n*Shows 3-day weather forecast*' 
+            text: `❌ *Usage:* \\${currentPrefix}forecast <city_name>\n\n*Shows 3-day weather forecast*` 
         }, { quoted: msg });
         return;
     }
@@ -3471,10 +4433,15 @@ if (command === 'forecast') {
     await sock.sendMessage(chatId, { react: { text: "📅", key: msg.key } });
 
     try {
-        const forecastUrl = `https://wttr.in/${cityName}?format="%l|%c|%t|%w|%h\n"&lang=id&m&period=3`;
-        const response = await axios.get(forecastUrl);
+        const forecastUrl = `https://wttr.in/${encodeURIComponent(cityName)}?format="%l|%c|%t|%w|%h\n"&lang=id&m&period=3`;
+        const response = await fetch(forecastUrl);
         
-        const forecasts = response.data.trim().split('\n');
+        if (!response.ok) {
+            throw new Error('Forecast service unavailable');
+        }
+        
+        const forecastData = await response.text();
+        const forecasts = forecastData.trim().split('\n');
         
         let responseMessage = `📅 *3-Day Forecast - ${cityName}*\n\n`;
         
@@ -3484,10 +4451,10 @@ if (command === 'forecast') {
             const parts = forecast.replace(/"/g, '').split('|');
             if (parts.length >= 5) {
                 responseMessage += `*${days[index]}*\n` +
-                                 `☁️ ${parts[1].trim()}\n` +
-                                 `🌡️ ${parts[2].trim()}\n` +
-                                 `💨 ${parts[3].trim()}\n` +
-                                 `💧 ${parts[4].trim()}\n\n`;
+                                 `☁️ ${parts[1]?.trim() || 'N/A'}\n` +
+                                 `🌡️ ${parts[2]?.trim() || 'N/A'}\n` +
+                                 `💨 ${parts[3]?.trim() || 'N/A'}\n` +
+                                 `💧 ${parts[4]?.trim() || 'N/A'}\n\n`;
             }
         });
 
@@ -3509,7 +4476,7 @@ if (command === 'weather-compare') {
 
     if (cities.length < 2) {
         await sock.sendMessage(chatId, { 
-            text: '❌ *Usage:* .weather-compare <city1>,<city2>,<city3>\n\n*Example:* .weather-compare London,Paris,Tokyo\n*Compares weather in multiple cities*' 
+            text: `❌ *Usage:* \\${currentPrefix}weather-compare <city1>,<city2>,<city3>\n\n*Example:* \\${currentPrefix}weather-compare London,Paris,Tokyo\n*Compares weather in multiple cities*` 
         }, { quoted: msg });
         return;
     }
@@ -3548,7 +4515,7 @@ if (command === 'weather-art') {
 
     if (!cityName) {
         await sock.sendMessage(chatId, { 
-            text: '❌ *Usage:* .weather-art <city_name>\n\n*Shows weather with ASCII art*' 
+            text: `❌ *Usage:* \\${currentPrefix}weather-art <city_name>\n\n*Shows weather with ASCII art*` 
         }, { quoted: msg });
         return;
     }
@@ -3556,11 +4523,15 @@ if (command === 'weather-art') {
     await sock.sendMessage(chatId, { react: { text: "🎨", key: msg.key } });
 
     try {
-        const artUrl = `https://wttr.in/${cityName}?lang=id&m`;
-        const response = await axios.get(artUrl);
+        const artUrl = `https://wttr.in/${encodeURIComponent(cityName)}?lang=id&m`;
+        const response = await fetch(artUrl);
+        
+        if (!response.ok) {
+            throw new Error('Weather art service unavailable');
+        }
         
         // Get ASCII art (first few lines)
-        const asciiArt = response.data.split('\n').slice(0, 10).join('\n');
+        const asciiArt = (await response.text()).split('\n').slice(0, 10).join('\n');
         
         const responseMessage = `🎨 *Weather Art - ${cityName}*\n\n\`\`\`${asciiArt}\`\`\``;
 
@@ -3581,7 +4552,7 @@ if (command === 'wiki-ai') {
     const searchQuery = args.join(' ');
     if (!searchQuery) {
         await sock.sendMessage(chatId, { 
-            text: '❌ *Usage:* .wiki-ai <search_query>\n\n*Example:* .wiki-ai Albert Einstein' 
+            text: `❌ *Usage:* \\${currentPrefix}wiki-ai <search_query>\n\n*Example:* \\${currentPrefix}wiki-ai Albert Einstein` 
         }, { quoted: msg });
         return;
     }
@@ -3592,12 +4563,14 @@ if (command === 'wiki-ai') {
         const responseMessage = await WikipediaAI(searchQuery);
         if (responseMessage) {
             await sock.sendMessage(chatId, { text: responseMessage }, { quoted: msg });
-            console.log(`Response: ${responseMessage}`);
         }
 
         await sock.sendMessage(chatId, { react: { text: "✅", key: msg.key } });
     } catch (error) {
-        console.error('Error sending message:', error);
+        console.error('Wiki AI Error:', error);
+        await sock.sendMessage(chatId, { 
+            text: `❌ Wikipedia AI search failed: ${error.message}` 
+        }, { quoted: msg });
         await sock.sendMessage(chatId, { react: { text: "❌", key: msg.key } });
     }
 }
@@ -3607,7 +4580,7 @@ if (command === 'wiki-search') {
     const searchQuery = args.join(' ');
     if (!searchQuery) {
         await sock.sendMessage(chatId, { 
-            text: '❌ *Usage:* .wiki-search <search_query>\n\n*Example:* .wiki-search quantum physics' 
+            text: `❌ *Usage:* \\${currentPrefix}wiki-search <search_query>\n\n*Example:* \\${currentPrefix}wiki-search quantum physics` 
         }, { quoted: msg });
         return;
     }
@@ -3618,12 +4591,14 @@ if (command === 'wiki-search') {
         const responseMessage = await WikipediaSearch(searchQuery);
         if (responseMessage) {
             await sock.sendMessage(chatId, { text: responseMessage }, { quoted: msg });
-            console.log(`Response: ${responseMessage}`);
         }
 
         await sock.sendMessage(chatId, { react: { text: "✅", key: msg.key } });
     } catch (error) {
-        console.error('Error sending message:', error);
+        console.error('Wiki Search Error:', error);
+        await sock.sendMessage(chatId, { 
+            text: `❌ Wikipedia search failed: ${error.message}` 
+        }, { quoted: msg });
         await sock.sendMessage(chatId, { react: { text: "❌", key: msg.key } });
     }
 }
@@ -3633,7 +4608,7 @@ if (command === 'wiki-img') {
     const userQuery = args.join(' ');
     if (!userQuery) {
         await sock.sendMessage(chatId, { 
-            text: '❌ *Usage:* .wiki-img <search_query>\n\n*Example:* .wiki-img Eiffel Tower' 
+            text: `❌ *Usage:* \\${currentPrefix}wiki-img <search_query>\n\n*Example:* \\${currentPrefix}wiki-img Eiffel Tower` 
         }, { quoted: msg });
         return;
     }
@@ -3647,7 +4622,6 @@ if (command === 'wiki-img') {
                 image: { url: result.url }, 
                 caption: result.caption 
             }, { quoted: msg });
-            console.log(`Response: ${result.caption}\n${result.url}`);
 
             await sock.sendMessage(chatId, { react: { text: "✅", key: msg.key } });
         } else {
@@ -3657,7 +4631,7 @@ if (command === 'wiki-img') {
             await sock.sendMessage(chatId, { react: { text: "❌", key: msg.key } });
         }
     } catch (error) {
-        console.error('Error sending message:', error);
+        console.error('Wiki Image Error:', error);
         await sock.sendMessage(chatId, { 
             text: '❌ Error fetching Wikipedia image.' 
         }, { quoted: msg });
@@ -3668,50 +4642,85 @@ if (command === 'wiki-img') {
 // Text-to-Speech (TTS)
 if (command === 'tts') {
     const textToConvert = args.join(' ');
+    
+    if (!textToConvert) {
+        await sock.sendMessage(chatId, { 
+            text: `❌ *Usage:* \\${currentPrefix}tts <text>\n\n*Example:* \\${currentPrefix}tts Hello world` 
+        }, { quoted: msg });
+        return;
+    }
+
     await sock.sendMessage(chatId, { react: { text: "👨‍💻", key: msg.key } });
 
     try {
-        const audioFilePath = path.join(__dirname, '../uploads/output.mp3');
+        // Create uploads directory if it doesn't exist
+        const uploadDir = path.join(__dirname, '../uploads');
+        if (!fs.existsSync(uploadDir)) {
+            fs.mkdirSync(uploadDir, { recursive: true });
+        }
+
+        const audioFilePath = path.join(uploadDir, `tts-${Date.now()}.mp3`);
         const gtts = new gTTS(textToConvert, 'en');
 
         gtts.save(audioFilePath, async function (err) {
             if (err) {
                 console.error('Error saving audio:', err);
+                await sock.sendMessage(chatId, { 
+                    text: '❌ Failed to generate audio.' 
+                }, { quoted: msg });
+                await sock.sendMessage(chatId, { react: { text: "❌", key: msg.key } });
+                return;
+            }
+
+            // Check if file was created
+            if (!fs.existsSync(audioFilePath)) {
+                await sock.sendMessage(chatId, { 
+                    text: '❌ Audio file not created.' 
+                }, { quoted: msg });
                 await sock.sendMessage(chatId, { react: { text: "❌", key: msg.key } });
                 return;
             }
 
             await sock.sendMessage(chatId, {
-                audio: { url: audioFilePath },
-                mimetype: 'audio/mp4',
+                audio: fs.readFileSync(audioFilePath),
+                mimetype: 'audio/mpeg',
                 ptt: true,
             }, { quoted: msg });
 
-            console.log(`Response: Audio sent ${audioFilePath}`);
-
-            fs.unlink(audioFilePath, (unlinkErr) => {
-                if (unlinkErr) {
-                    console.error('Error deleting audio file:', unlinkErr);
-                }
-            });
+            // Cleanup
+            fs.unlinkSync(audioFilePath);
 
             await sock.sendMessage(chatId, { react: { text: "✅", key: msg.key } });
         });
     } catch (error) {
+        console.error('TTS Error:', error);
+        await sock.sendMessage(chatId, { 
+            text: '❌ TTS failed.' 
+        }, { quoted: msg });
         await sock.sendMessage(chatId, { react: { text: "❌", key: msg.key } });
     }
 }
 
 // Text-to-Speech (TTS2) send to target 
-		if (command === 'Tts2') {
+if (command === 'tts2') {
+    const joinedArgs = args.join(' ');
+
+    if (!joinedArgs) {
+        await sock.sendMessage(chatId, { 
+            text: `❌ *Usage:* \\${currentPrefix}tts2 <message> <phone_number>\n\n*Example:* \\${currentPrefix}tts2 Hello 2348123456789` 
+        }, { quoted: msg });
+        return;
+    }
+
     await sock.sendMessage(chatId, { react: { text: "👨‍💻", key: msg.key } });
 
     try {
-        const joinedArgs = args.join(' ');
         const lastSpaceIndex = joinedArgs.lastIndexOf(' ');
 
         if (lastSpaceIndex === -1) {
-            await sock.sendMessage(chatId, { text: "❌ Usage: `.tts2 your message here 23481xxxxxxx`" });
+            await sock.sendMessage(chatId, { 
+                text: `❌ *Usage:* \\${currentPrefix}tts2 <message> <phone_number>\n\n*Example:* \\${currentPrefix}tts2 Hello 2348123456789` 
+            });
             return;
         }
 
@@ -3720,199 +4729,310 @@ if (command === 'tts') {
 
         if (!textToConvert || !targetNumber) {
             await sock.sendMessage(chatId, {
-                text: "❌ Please provide both a message and a phone number like `.tts2 Hello 23481xxxxxxx`",
+                text: `❌ Please provide both a message and a phone number\n\n*Example:* \\${currentPrefix}tts2 Hello 2348123456789`,
             });
             return;
         }
 
+        // Create uploads directory if it doesn't exist
+        const uploadDir = path.join(__dirname, '../uploads');
+        if (!fs.existsSync(uploadDir)) {
+            fs.mkdirSync(uploadDir, { recursive: true });
+        }
+
         const targetJid = `${targetNumber.replace('+', '')}@s.whatsapp.net`;
-        const audioFilePath = path.join(__dirname, '../uploads/output.mp3');
+        const audioFilePath = path.join(uploadDir, `tts2-${Date.now()}.mp3`);
         const gtts = new gTTS(textToConvert, 'en');
 
         gtts.save(audioFilePath, async function (err) {
             if (err) {
                 console.error('Error saving audio:', err);
+                await sock.sendMessage(chatId, { 
+                    text: '❌ Failed to generate audio.' 
+                }, { quoted: msg });
+                await sock.sendMessage(chatId, { react: { text: "❌", key: msg.key } });
+                return;
+            }
+
+            // Check if file was created
+            if (!fs.existsSync(audioFilePath)) {
+                await sock.sendMessage(chatId, { 
+                    text: '❌ Audio file not created.' 
+                }, { quoted: msg });
                 await sock.sendMessage(chatId, { react: { text: "❌", key: msg.key } });
                 return;
             }
 
             await sock.sendMessage(targetJid, {
-                audio: { url: audioFilePath },
-                mimetype: 'audio/mp4',
+                audio: fs.readFileSync(audioFilePath),
+                mimetype: 'audio/mpeg',
                 ptt: true,
             });
 
+            await sock.sendMessage(chatId, { 
+                text: `✅ TTS sent to ${targetNumber}: "${textToConvert}"` 
+            }, { quoted: msg });
+            
             await sock.sendMessage(chatId, { react: { text: "✅", key: msg.key } });
             console.log(`✅ Sent TTS to ${targetJid}: "${textToConvert}"`);
 
-            fs.unlink(audioFilePath, (unlinkErr) => {
-                if (unlinkErr) console.error('Error deleting audio file:', unlinkErr);
-            });
+            // Cleanup
+            fs.unlinkSync(audioFilePath);
         });
     } catch (error) {
         console.error("TTS2 Error:", error);
-        await sock.sendMessage(chatId, { react: { text: "❌", key: msg.key } });
-    }
-}
-
-
-// Translate to English 
-if (command === "translate-en") {
-    const text = args.join(" ");
-    if (!text) {
-        await sock.sendMessage(chatId, {
-            text: "❌ Please provide text to translate.\n\n*Example:* ~translate-en I love coding"
+        await sock.sendMessage(chatId, { 
+            text: `❌ TTS2 failed: ${error.message}` 
         }, { quoted: msg });
-        return;
-    }
-
-    await sock.sendMessage(chatId, { react: { text: "👨‍💻", key: msg.key } });
-
-    try {
-        const translatedText = await Translate(text, "en");
-        await sock.sendMessage(chatId, { text: `*Translated (EN):*\n${translatedText}` }, { quoted: msg });
-        await sock.sendMessage(chatId, { react: { text: "✅", key: msg.key } });
-    } catch (error) {
-        console.error("❌ Translate error:", error);
         await sock.sendMessage(chatId, { react: { text: "❌", key: msg.key } });
     }
 }
-
-// Translate to French
-if (command === "translate-fr") {
-    const text = args.join(" ");
-    if (!text) {
-        await sock.sendMessage(chatId, {
-            text: "❌ Please provide text to translate.\n\n*Example:* ~translate-fr I love coding"
-        }, { quoted: msg });
-        return;
-    }
-
-    await sock.sendMessage(chatId, { react: { text: "👨‍💻", key: msg.key } });
-
-    try {
-        const translatedText = await Translate(text, "fr");
-        await sock.sendMessage(chatId, { text: `*Traduit (FR):*\n${translatedText}` }, { quoted: msg });
-        await sock.sendMessage(chatId, { react: { text: "✅", key: msg.key } });
-    } catch (error) {
-        console.error("❌ Translate error:", error);
-        await sock.sendMessage(chatId, { react: { text: "❌", key: msg.key } });
-    }
-}
-
 // Convert Video to Audio
-const ffmpeg = require('fluent-ffmpeg');
-
 if (command === 'tomp3') {
-  const chatId = msg.key.remoteJid;
+    const chatId = msg.key.remoteJid;
 
-  // Check if message is a reply to a video
-  const quoted = msg.message?.extendedTextMessage?.contextInfo?.quotedMessage;
-  const videoMessage = quoted?.videoMessage || msg.message?.videoMessage;
+    // Check if message is a reply to a video
+    const quoted = msg.message?.extendedTextMessage?.contextInfo?.quotedMessage;
+    const videoMessage = quoted?.videoMessage || msg.message?.videoMessage;
 
-  if (!videoMessage) {
-    await sock.sendMessage(chatId, { text: '⚠️ Reply to a video with ~tomp3 to convert it.' });
-    return;
-  }
-
-  try {
-    // Send processing message
-    await sock.sendMessage(chatId, { react: { text: "👨‍💻", key: msg.key } });
-    
-    // Download video
-    const buffer = await downloadContentFromMessage(videoMessage, 'video')
-      .then(async (stream) => {
-        let buff = Buffer.from([]);
-        for await (const chunk of stream) {
-          buff = Buffer.concat([buff, chunk]);
-        }
-        return buff;
-      });
-
-    const tempDir = path.join(__dirname, 'temp');
-    if (!fs.existsSync(tempDir)) {
-      fs.mkdirSync(tempDir, { recursive: true });
+    if (!videoMessage) {
+        await sock.sendMessage(chatId, { 
+            text: `❌ Reply to a video with \\${currentPrefix}tomp3 to convert it to MP3.\n\n*Usage:* Reply to a video message with \\${currentPrefix}tomp3` 
+        }, { quoted: msg });
+        return;
     }
 
-    const timestamp = Date.now();
-    const inputPath = path.join(tempDir, `input_${timestamp}.mp4`);
-    const outputPath = path.join(tempDir, `output_${timestamp}.mp3`);
+    try {
+        // Send processing message
+        await sock.sendMessage(chatId, { react: { text: "👨‍💻", key: msg.key } });
+        
+        // Download video using the correct function
+        const buffer = await downloadMediaMessage(
+            { 
+                message: { 
+                    ...(quoted || msg.message),
+                    key: msg.key 
+                } 
+            }, 
+            'buffer', 
+            {}
+        );
 
-    fs.writeFileSync(inputPath, buffer);
+        if (!buffer) {
+            throw new Error('Failed to download video');
+        }
 
-    await sock.sendMessage(chatId, { react: { text: "🔄", key: msg.key } });
+        // Create temp directory
+        const tempDir = path.join(__dirname, '../uploads/temp');
+        if (!fs.existsSync(tempDir)) {
+            fs.mkdirSync(tempDir, { recursive: true });
+        }
 
-    // Convert to MP3 using ffmpeg
-    return new Promise((resolve, reject) => {
-      ffmpeg(inputPath)
-        .audioBitrate(128)
-        .toFormat('mp3')
-        .on('start', (commandLine) => {
-          console.log('FFmpeg started with command: ' + commandLine);
-        })
-        .on('progress', (progress) => {
-          console.log('Processing: ' + (progress.percent || 0) + '% done');
-        })
-        .on('end', async () => {
-          try {
-            console.log('Conversion finished');
-            
-            // Check if file exists and has content
-            if (!fs.existsSync(outputPath)) {
-              throw new Error('Output file was not created');
-            }
-            
-            const stats = fs.statSync(outputPath);
-            if (stats.size === 0) {
-              throw new Error('Output file is empty');
-            }
-            
-            const mp3Buffer = fs.readFileSync(outputPath);
-            
-            await sock.sendMessage(chatId, { 
-              audio: mp3Buffer, 
-              mimetype: 'audio/mpeg',
-              ptt: false
-            });
+        const timestamp = Date.now();
+        const inputPath = path.join(tempDir, `input_${timestamp}.mp4`);
+        const outputPath = path.join(tempDir, `output_${timestamp}.mp3`);
 
-            // Cleanup
-            cleanupFiles(inputPath, outputPath);
-            resolve();
-            
-          } catch (error) {
-            console.error('Error sending audio:', error);
-            await sock.sendMessage(chatId, { text: '❌ Error sending converted audio.' });
-            cleanupFiles(inputPath, outputPath);
-            reject(error);
-          }
-        })
-        .on('error', async (err) => {
-          console.error('FFmpeg error:', err);
-          await sock.sendMessage(chatId, { text: '❌ Conversion failed.' });
-          cleanupFiles(inputPath, outputPath);
-          reject(err);
-        })
-        .save(outputPath);
-    });
+        fs.writeFileSync(inputPath, buffer);
 
-  } catch (err) {
-    console.error('General error:', err);
-    await sock.sendMessage(chatId, { text: '❌ Error processing video.' });
-  }
+        await sock.sendMessage(chatId, { react: { text: "🔄", key: msg.key } });
+
+        // Convert to MP3 using ffmpeg
+        await new Promise((resolve, reject) => {
+            ffmpeg(inputPath)
+                .audioBitrate(128)
+                .toFormat('mp3')
+                .on('start', (commandLine) => {
+                    console.log('FFmpeg started with command: ' + commandLine);
+                })
+                .on('progress', (progress) => {
+                    console.log('Processing: ' + (progress.percent || 0) + '% done');
+                })
+                .on('end', async () => {
+                    try {
+                        console.log('Conversion finished');
+                        
+                        // Check if file exists and has content
+                        if (!fs.existsSync(outputPath)) {
+                            throw new Error('Output file was not created');
+                        }
+                        
+                        const stats = fs.statSync(outputPath);
+                        if (stats.size === 0) {
+                            throw new Error('Output file is empty');
+                        }
+                        
+                        const mp3Buffer = fs.readFileSync(outputPath);
+                        
+                        await sock.sendMessage(chatId, { 
+                            audio: mp3Buffer, 
+                            mimetype: 'audio/mpeg',
+                            ptt: false
+                        }, { quoted: msg });
+
+                        await sock.sendMessage(chatId, { react: { text: "✅", key: msg.key } });
+                        
+                        // Cleanup
+                        cleanupFiles(inputPath, outputPath);
+                        resolve();
+                        
+                    } catch (error) {
+                        console.error('Error sending audio:', error);
+                        await sock.sendMessage(chatId, { 
+                            text: '❌ Error sending converted audio.' 
+                        }, { quoted: msg });
+                        await sock.sendMessage(chatId, { react: { text: "❌", key: msg.key } });
+                        cleanupFiles(inputPath, outputPath);
+                        reject(error);
+                    }
+                })
+                .on('error', async (err) => {
+                    console.error('FFmpeg error:', err);
+                    await sock.sendMessage(chatId, { 
+                        text: '❌ Conversion failed. Make sure FFmpeg is installed.' 
+                    }, { quoted: msg });
+                    await sock.sendMessage(chatId, { react: { text: "❌", key: msg.key } });
+                    cleanupFiles(inputPath, outputPath);
+                    reject(err);
+                })
+                .save(outputPath);
+        });
+
+    } catch (err) {
+        console.error('General error:', err);
+        await sock.sendMessage(chatId, { 
+            text: `❌ Error processing video: ${err.message}` 
+        }, { quoted: msg });
+        await sock.sendMessage(chatId, { react: { text: "❌", key: msg.key } });
+    }
+}
+
+// Convert Audio to Different Format
+if (command === 'toaudio') {
+    const chatId = msg.key.remoteJid;
+
+    // Check if message is a reply to a video or audio
+    const quoted = msg.message?.extendedTextMessage?.contextInfo?.quotedMessage;
+    const mediaMessage = quoted?.videoMessage || quoted?.audioMessage || msg.message?.videoMessage || msg.message?.audioMessage;
+
+    if (!mediaMessage) {
+        await sock.sendMessage(chatId, { 
+            text: `❌ Reply to a video or audio with \\${currentPrefix}toaudio to convert it.\n\n*Supported:* MP4 to MP3, Audio format conversion` 
+        }, { quoted: msg });
+        return;
+    }
+
+    try {
+        await sock.sendMessage(chatId, { react: { text: "👨‍💻", key: msg.key } });
+        
+        // Download media
+        const buffer = await downloadMediaMessage(
+            { 
+                message: { 
+                    ...(quoted || msg.message),
+                    key: msg.key 
+                } 
+            }, 
+            'buffer', 
+            {}
+        );
+
+        if (!buffer) {
+            throw new Error('Failed to download media');
+        }
+
+        // Create temp directory
+        const tempDir = path.join(__dirname, '../uploads/temp');
+        if (!fs.existsSync(tempDir)) {
+            fs.mkdirSync(tempDir, { recursive: true });
+        }
+
+        const timestamp = Date.now();
+        const inputPath = path.join(tempDir, `input_${timestamp}.${mediaMessage.videoMessage ? 'mp4' : 'mp3'}`);
+        const outputPath = path.join(tempDir, `output_${timestamp}.mp3`);
+
+        fs.writeFileSync(inputPath, buffer);
+
+        await sock.sendMessage(chatId, { react: { text: "🔄", key: msg.key } });
+
+        // Convert using ffmpeg
+        await new Promise((resolve, reject) => {
+            const ff = ffmpeg(inputPath)
+                .audioBitrate(128)
+                .toFormat('mp3')
+                .on('start', (commandLine) => {
+                    console.log('FFmpeg conversion started');
+                })
+                .on('progress', (progress) => {
+                    console.log('Processing: ' + (progress.percent || 0) + '% done');
+                })
+                .on('end', async () => {
+                    try {
+                        if (!fs.existsSync(outputPath)) {
+                            throw new Error('Output file was not created');
+                        }
+                        
+                        const stats = fs.statSync(outputPath);
+                        if (stats.size === 0) {
+                            throw new Error('Output file is empty');
+                        }
+                        
+                        const audioBuffer = fs.readFileSync(outputPath);
+                        
+                        await sock.sendMessage(chatId, { 
+                            audio: audioBuffer, 
+                            mimetype: 'audio/mpeg',
+                            ptt: false
+                        }, { quoted: msg });
+
+                        await sock.sendMessage(chatId, { react: { text: "✅", key: msg.key } });
+                        
+                        cleanupFiles(inputPath, outputPath);
+                        resolve();
+                        
+                    } catch (error) {
+                        console.error('Error sending audio:', error);
+                        await sock.sendMessage(chatId, { 
+                            text: '❌ Error processing audio.' 
+                        }, { quoted: msg });
+                        await sock.sendMessage(chatId, { react: { text: "❌", key: msg.key } });
+                        cleanupFiles(inputPath, outputPath);
+                        reject(error);
+                    }
+                })
+                .on('error', async (err) => {
+                    console.error('FFmpeg error:', err);
+                    await sock.sendMessage(chatId, { 
+                        text: '❌ Conversion failed. FFmpeg might not be installed.' 
+                    }, { quoted: msg });
+                    await sock.sendMessage(chatId, { react: { text: "❌", key: msg.key } });
+                    cleanupFiles(inputPath, outputPath);
+                    reject(err);
+                });
+
+            ff.save(outputPath);
+        });
+
+    } catch (err) {
+        console.error('Audio conversion error:', err);
+        await sock.sendMessage(chatId, { 
+            text: `❌ Error: ${err.message}` 
+        }, { quoted: msg });
+        await sock.sendMessage(chatId, { react: { text: "❌", key: msg.key } });
+    }
 }
 
 // Helper function for cleanup
 function cleanupFiles(...files) {
-  files.forEach(file => {
-    try {
-      if (fs.existsSync(file)) {
-        fs.unlinkSync(file);
-        console.log('Cleaned up:', file);
-      }
-    } catch (error) {
-      console.error('Error cleaning up file:', file, error);
-    }
-  });
+    files.forEach(file => {
+        try {
+            if (fs.existsSync(file)) {
+                fs.unlinkSync(file);
+                console.log('Cleaned up:', file);
+            }
+        } catch (error) {
+            console.error('Error cleaning up file:', file, error);
+        }
+    });
 }
 
 // Convert Sticker to Image 
@@ -3932,8 +5052,8 @@ if (command === 'to-img') {
         } : null;
 
     if (!isSticker || !targetMsg) {
-        await sock.sendMessage(chatId, {
-            text: "⚠️ Please reply to a *sticker* to convert it to an image.",
+        await sock.sendMessage(chatId, { 
+            text: `❌ Reply to a sticker with \\${currentPrefix}to-img to convert it.\n\n*Supported:* All sticker formats to image` 
         }, { quoted: msg });
         return;
     }
@@ -3963,69 +5083,140 @@ if (command === 'to-img') {
     }
 }
 
-// Convert Image to Sticker
-	if (command === 'sticker') {
+// Convert Image/Video to Sticker
+if (command === 'sticker') {
     const quoted = msg.message.extendedTextMessage?.contextInfo?.quotedMessage;
     const isQuotedImage = quoted?.imageMessage;
+    const isQuotedVideo = quoted?.videoMessage;
     const isDirectImage = msg.message.imageMessage;
+    const isDirectVideo = msg.message.videoMessage;
 
-    const targetImage = isQuotedImage ? { message: quoted } : (isDirectImage ? msg : null);
+    const targetMedia = isQuotedImage || isQuotedVideo ? { message: quoted } : 
+                       (isDirectImage || isDirectVideo ? msg : null);
 
-    if (!targetImage) {
-        await sock.sendMessage(chatId, { text: "❌ Send or reply to an image with the command." }, { quoted: msg });
+    if (!targetMedia) {
+        await sock.sendMessage(chatId, { 
+            text: `❌ Reply to an image or video with \\${currentPrefix}sticker to convert it.\n\n*Supported:* Images, Videos (up to 10 seconds)` 
+        }, { quoted: msg });
         return;
     }
 
     await sock.sendMessage(chatId, { react: { text: "🛠️", key: msg.key } });
-    console.log("🟡 STEP 1: Detected valid image...");
+    console.log("🟡 STEP 1: Detected valid media...");
 
     try {
         const buffer = await downloadMediaMessage(
-            targetImage,
+            targetMedia,
             'buffer',
             {},
             { reuploadRequest: sock.updateMediaMessage }
         );
         console.log("🟢 STEP 2: Media downloaded");
 
-        const inputPath = path.join(__dirname, '../uploads/input.jpg');
+        const inputPath = path.join(__dirname, '../uploads/input');
         const outputPath = path.join(__dirname, '../uploads/output.webp');
         const ffmpegPath = 'ffmpeg';
 
+        // Determine file extension based on media type
+        const isVideo = isQuotedVideo || isDirectVideo;
+        const fileExtension = isVideo ? 'mp4' : 'jpg';
+        const fullInputPath = `${inputPath}.${fileExtension}`;
 
+        fs.writeFileSync(fullInputPath, buffer);
+        console.log("🟢 STEP 3: Buffer saved to", fullInputPath);
 
-        fs.writeFileSync(inputPath, buffer);
-        console.log("🟢 STEP 3: Buffer saved to", inputPath);
+        let ffmpegCmd;
 
-        const ffmpegCmd = `${ffmpegPath} -y -i "${inputPath}" -vf "scale=512:512:force_original_aspect_ratio=decrease,pad=512:512:(ow-iw)/2:(oh-ih)/2:color=white" -vcodec libwebp -lossless 1 -q:v 80 -preset default -loop 0 -an -fps_mode vfr "${outputPath}"`;
-        console.log("🟢 STEP 4: Running FFmpeg...");
+        if (isVideo) {
+            // Video to WebP sticker (animated)
+            ffmpegCmd = `${ffmpegPath} -y -i "${fullInputPath}" ` +
+                        `-vf "scale=512:512:force_original_aspect_ratio=decrease,pad=512:512:(ow-iw)/2:(oh-ih)/2:color=white" ` +
+                        `-vcodec libwebp -lossless 0 -q:v 70 -preset default -loop 0 -an -fps_mode vfr ` +
+                        `-t 10 "${outputPath}"`; // Limit to 10 seconds
+            console.log("🟢 STEP 4: Converting video to animated sticker...");
+        } else {
+            // Image to WebP sticker (static)
+            ffmpegCmd = `${ffmpegPath} -y -i "${fullInputPath}" ` +
+                        `-vf "scale=512:512:force_original_aspect_ratio=decrease,pad=512:512:(ow-iw)/2:(oh-ih)/2:color=white" ` +
+                        `-vcodec libwebp -lossless 1 -q:v 80 -preset default -loop 0 -an -fps_mode vfr "${outputPath}"`;
+            console.log("🟢 STEP 4: Converting image to sticker...");
+        }
+
+        console.log("🟢 STEP 5: Running FFmpeg...");
         exec(ffmpegCmd, async (error, stdout, stderr) => {
             if (error) {
                 console.error("❌ FFmpeg Error:", error.message);
                 console.error("❌ STDERR:", stderr);
-                await sock.sendMessage(chatId, { text: "❌ FFmpeg failed to convert image.", quoted: msg });
+                await sock.sendMessage(chatId, { 
+                    text: "❌ Failed to convert media to sticker. Make sure video is not too long." 
+                }, { quoted: msg });
+                
+                // Cleanup files
+                try {
+                    if (fs.existsSync(fullInputPath)) fs.unlinkSync(fullInputPath);
+                    if (fs.existsSync(outputPath)) fs.unlinkSync(outputPath);
+                } catch (cleanupErr) {
+                    console.error("Cleanup error:", cleanupErr);
+                }
                 return;
             }
 
-            console.log("✅ STEP 5: FFmpeg completed.");
-            const sticker = fs.readFileSync(outputPath);
-            await sock.sendMessage(chatId, { sticker }, { quoted: msg });
+            console.log("✅ STEP 6: FFmpeg completed.");
+            
+            try {
+                const sticker = fs.readFileSync(outputPath);
+                
+                // Check file size (WhatsApp sticker limit is ~500KB)
+                const fileSize = sticker.length / 1024; // Size in KB
+                if (fileSize > 500) {
+                    await sock.sendMessage(chatId, { 
+                        text: "❌ Sticker file too large. Try with a shorter video or smaller image." 
+                    }, { quoted: msg });
+                } else {
+                    await sock.sendMessage(chatId, { sticker }, { quoted: msg });
+                    console.log("✅ STEP 7: Sticker sent successfully!");
+                }
 
-            fs.unlinkSync(inputPath);
-            fs.unlinkSync(outputPath);
+            } catch (readErr) {
+                console.error("❌ Error reading output file:", readErr);
+                await sock.sendMessage(chatId, { 
+                    text: "❌ Failed to create sticker from media." 
+                }, { quoted: msg });
+            }
+
+            // Cleanup files
+            try {
+                if (fs.existsSync(fullInputPath)) fs.unlinkSync(fullInputPath);
+                if (fs.existsSync(outputPath)) fs.unlinkSync(outputPath);
+            } catch (cleanupErr) {
+                console.error("Cleanup error:", cleanupErr);
+            }
 
             await sock.sendMessage(chatId, { react: { text: "✅", key: msg.key } });
         });
 
     } catch (err) {
         console.error("❌ Download error:", err);
-        await sock.sendMessage(chatId, { text: "❌ Failed to download media.", quoted: msg });
+        await sock.sendMessage(chatId, { 
+            text: "❌ Failed to download media." 
+        }, { quoted: msg });
     }
 }
 
+// Gemini AI Commands with Usage
 
-		if (command === 'gemini') {
-    const question = args.join(' ');
+// Main Gemini AI Chat
+if (command === 'gemini') {
+    const question = args.join(' ').trim();
+    
+    // Show usage if no question provided
+    if (!question) {
+        await sock.sendMessage(chatId, { 
+            text: `❌ Please provide a question for Gemini AI.\n\n*Usage:* \\${currentPrefix}gemini <your question>\n\n*Examples:*\n\\${currentPrefix}gemini Explain quantum physics\n\\${currentPrefix}gemini Write a poem about nature` 
+        }, { quoted: msg });
+        return;
+    }
+    
     await sock.sendMessage(chatId, { react: { text: "👨‍💻", key: msg.key } });
 
     try {
@@ -4035,11 +5226,23 @@ if (command === 'to-img') {
         await sock.sendMessage(chatId, { react: { text: "✅", key: msg.key } });
     } catch (error) {
         console.error('Error sending message:', error);
+        await sock.sendMessage(chatId, { 
+            text: `❌ Failed to get response from Gemini AI.\n\n*Error:* ${error.message}\n\nMake sure your API key is configured correctly.` 
+        }, { quoted: msg });
         await sock.sendMessage(chatId, { react: { text: "❌", key: msg.key } });
     }
 }
 
+// Test API Key
 if (command === 'test-key') {
+    // Show usage if help requested
+    if (args[0] === 'help' || args[0] === '?') {
+        await sock.sendMessage(chatId, { 
+            text: `🔧 *Gemini API Key Test*\n\n*Usage:* \\${currentPrefix}test-key\n\n*Purpose:* Tests if your Gemini API key is working properly and shows available models.` 
+        }, { quoted: msg });
+        return;
+    }
+    
     try {
         const testUrls = [
             `https://generativelanguage.googleapis.com/v1/models?key=${config.GEMINI_API}`,
@@ -4069,18 +5272,27 @@ if (command === 'test-key') {
         
         if (!workingUrl) {
             await sock.sendMessage(chatId, {
-                text: `❌ API Key test failed on all endpoints.\n\nPlease check:\n1. Your API key is valid\n2. You have enabled Gemini API in Google Cloud Console\n3. Your billing is set up`
+                text: `❌ API Key test failed on all endpoints.\n\n*Troubleshooting:*\n1. Check if your API key is valid\n2. Enable Gemini API in Google Cloud Console\n3. Set up billing properly\n4. Check API key permissions\n\nUse *\\${currentPrefix}test-key help* for usage info.`
             });
         }
         
     } catch (error) {
         await sock.sendMessage(chatId, {
-            text: `❌ API Key test error: ${error.message}`
+            text: `❌ API Key test error: ${error.message}\n\nUse *\\${currentPrefix}test-key help* for usage information.`
         });
     }
 }
 
+// List Available Models
 if (command === 'list-models') {
+    // Show usage if help requested
+    if (args[0] === 'help' || args[0] === '?') {
+        await sock.sendMessage(chatId, { 
+            text: `📋 *List Gemini Models*\n\n*Usage:* \\${currentPrefix}list-models\n\n*Purpose:* Finds and displays the working Gemini model for this bot.` 
+        }, { quoted: msg });
+        return;
+    }
+    
     try {
         await sock.sendMessage(chatId, { react: { text: "🔍", key: msg.key } });
         
@@ -4089,21 +5301,30 @@ if (command === 'list-models') {
         const modelName = await findWorkingModel();
         
         await sock.sendMessage(chatId, {
-            text: `✅ Working model found: ${modelName}\n\nTry using .gemini-ai now! 🚀`
+            text: `✅ Working model found: ${modelName}\n\nTry using *\\${currentPrefix}gemini* now! 🚀`
         });
         
         await sock.sendMessage(chatId, { react: { text: "✅", key: msg.key } });
     } catch (error) {
         await sock.sendMessage(chatId, {
-            text: `❌ Error finding models: ${error.message}\n\nCheck console for detailed model list.`
+            text: `❌ Error finding models: ${error.message}\n\n*Usage:* \\${currentPrefix}list-models\nCheck console for detailed model list.`
         });
         await sock.sendMessage(chatId, { react: { text: "❌", key: msg.key } });
     }
 }
 
-// Gemini Roasting
+// Gemini Roasting (Fun/Sarcastic Responses)
 if (command === 'gemini-roasting') {
-    const question = args.join(' ');
+    const question = args.join(' ').trim();
+    
+    // Show usage if no question provided
+    if (!question) {
+        await sock.sendMessage(chatId, { 
+            text: `❌ Please provide something for Gemini to roast.\n\n*Usage:* \\${currentPrefix}gemini-roasting <text to roast>\n\n*Examples:*\n\\${currentPrefix}gemini-roasting my coding skills\n\\${currentPrefix}gemini-roasting pineapple on pizza` 
+        }, { quoted: msg });
+        return;
+    }
+    
     await sock.sendMessage(chatId, { react: { text: "👨‍💻", key: msg.key } });
 
     try {
@@ -4113,6 +5334,9 @@ if (command === 'gemini-roasting') {
         await sock.sendMessage(chatId, { react: { text: "✅", key: msg.key } });
     } catch (error) {
         console.error('Error sending message:', error);
+        await sock.sendMessage(chatId, { 
+            text: `❌ Failed to get roast from Gemini.\n\n*Error:* ${error.message}` 
+        }, { quoted: msg });
         await sock.sendMessage(chatId, { react: { text: "❌", key: msg.key } });
     }
 }
@@ -4122,54 +5346,68 @@ if (command === 'gemini-img') {
     const quotedMessage = msg.message.extendedTextMessage?.contextInfo?.quotedMessage;
     const getPrompt = args.join(' ').trim();
 
-    if (quotedMessage?.imageMessage) {
-        await sock.sendMessage(chatId, { react: { text: "👨‍💻", key: msg.key } });
-
-        const buffer = await downloadMediaMessage({ message: quotedMessage }, 'buffer');
-        const inputFilePath = path.join(__dirname, '../uploads/input-image.jpg');
-        fs.writeFileSync(inputFilePath, buffer);
-
-        try {
-            const analysisResult = await GeminiImage(inputFilePath, getPrompt);
-            await sock.sendMessage(chatId, { text: analysisResult }, { quoted: msg });
-            console.log(`Response: ${analysisResult}`);
-        } catch (error) {
-            await sock.sendMessage(chatId, { react: { text: "❌", key: msg.key } });
-        } finally {
-            fs.unlinkSync(inputFilePath);
-            await sock.sendMessage(chatId, { react: { text: "✅", key: msg.key } });
-        }
-    } else {
-        await sock.sendMessage(chatId, { text: "⚠️ Please reply to an image to analyze.", quoted: msg });
+    // Show usage if no image or prompt provided
+    if (!quotedMessage?.imageMessage) {
+        await sock.sendMessage(chatId, { 
+            text: `❌ Reply to an image with \\${currentPrefix}gemini-img to analyze it.\n\n*Usage:* \\${currentPrefix}gemini-img [optional prompt]\n\n*Examples:*\n\\${currentPrefix}gemini-img (reply to image)\n\\${currentPrefix}gemini-img describe this image\n\\${currentPrefix}gemini-img what's in this photo?` 
+        }, { quoted: msg });
         await sock.sendMessage(chatId, { react: { text: "❌", key: msg.key } });
+        return;
+    }
+
+    await sock.sendMessage(chatId, { react: { text: "👨‍💻", key: msg.key } });
+
+    const buffer = await downloadMediaMessage({ message: quotedMessage }, 'buffer');
+    const inputFilePath = path.join(__dirname, '../uploads/input-image.jpg');
+    fs.writeFileSync(inputFilePath, buffer);
+
+    try {
+        const analysisResult = await GeminiImage(inputFilePath, getPrompt);
+        await sock.sendMessage(chatId, { text: analysisResult }, { quoted: msg });
+        console.log(`Response: ${analysisResult}`);
+    } catch (error) {
+        await sock.sendMessage(chatId, { 
+            text: `❌ Failed to analyze image: ${error.message}` 
+        }, { quoted: msg });
+        await sock.sendMessage(chatId, { react: { text: "❌", key: msg.key } });
+    } finally {
+        fs.unlinkSync(inputFilePath);
+        await sock.sendMessage(chatId, { react: { text: "✅", key: msg.key } });
     }
 }
 
-// Gemini Roasting Image
+// Gemini Roasting Image (Fun/Sarcastic Image Analysis)
 if (command === 'gemini-roasting-img') {
     const quotedMessage = msg.message.extendedTextMessage?.contextInfo?.quotedMessage;
     const getPrompt = args.join(' ').trim();
 
-    if (quotedMessage?.imageMessage) {
-        await sock.sendMessage(chatId, { react: { text: "👨‍💻", key: msg.key } });
-
-        const buffer = await downloadMediaMessage({ message: quotedMessage }, 'buffer');
-        const inputFilePath = path.join(__dirname, '../upload/input-image.jpg');
-        fs.writeFileSync(inputFilePath, buffer);
-
-        try {
-            const analysisResult = await GeminiImageRoasting(inputFilePath, getPrompt);
-            await sock.sendMessage(chatId, { text: analysisResult }, { quoted: msg });
-            console.log(`Response: ${analysisResult}`);
-        } catch (error) {
-            await sock.sendMessage(chatId, { react: { text: "❌", key: msg.key } });
-        } finally {
-            fs.unlinkSync(inputFilePath);
-            await sock.sendMessage(chatId, { react: { text: "✅", key: msg.key } });
-        }
-    } else {
-        await sock.sendMessage(chatId, { text: "⚠️ Please reply to an image to roast.", quoted: msg });
+    // Show usage if no image provided
+    if (!quotedMessage?.imageMessage) {
+        await sock.sendMessage(chatId, { 
+            text: `❌ Reply to an image with \\${currentPrefix}gemini-roasting-img to roast it.\n\n*Usage:* \\${currentPrefix}gemini-roasting-img [optional prompt]\n\n*Examples:*\n\\${currentPrefix}gemini-roasting-img (reply to image)\n\\${currentPrefix}gemini-roasting-img roast this person's fashion\n\\${currentPrefix}gemini-roasting-img make fun of this meme` 
+        }, { quoted: msg });
         await sock.sendMessage(chatId, { react: { text: "❌", key: msg.key } });
+        return;
+    }
+
+    await sock.sendMessage(chatId, { react: { text: "👨‍💻", key: msg.key } });
+
+    const buffer = await downloadMediaMessage({ message: quotedMessage }, 'buffer');
+    const inputFilePath = path.join(__dirname, '../upload/input-image.jpg');
+    fs.writeFileSync(inputFilePath, buffer);
+
+    try {
+        const analysisResult = await GeminiImageRoasting(inputFilePath, getPrompt);
+        await sock.sendMessage(chatId, { text: analysisResult }, { quoted: msg });
+        console.log(`Response: ${analysisResult}`);
+    } catch (error) {
+        await sock.sendMessage(chatId, { 
+            text: `❌ Failed to roast image: ${error.message}` 
+        }, { quoted: msg });
+        await sock.sendMessage(chatId, { react: { text: "❌", key: msg.key } });
+    } finally {
+        fs.unlinkSync(inputFilePath);
+        await sock.sendMessage(chatId, { react: { text: "✅", key: msg.key } });
     }
 }
 
@@ -4178,6 +5416,9 @@ if (command === 'gemini-roasting-img') {
 // ==============================================
 
        
+// 🔹GROUP COMMANDS
+// ==============================================
+
 // Group Kicked User
 if (command === 'eXe') {
     await sock.sendMessage(chatId, { react: { text: "👨‍💻", key: msg.key } });
@@ -4204,7 +5445,9 @@ if (command === 'eXe') {
             await sock.sendMessage(chatId, { react: { text: "❌", key: msg.key } });
         }
     } else {
-        await sock.sendMessage(chatId, { text: "Please mention a user (@) or reply to a user's message to Kick." }, { quoted: msg });
+        await sock.sendMessage(chatId, { 
+            text: `❌ Reply to a user or mention someone with \\${currentPrefix}eXe to kick them.\n\n*Usage:* Reply to user or @mention` 
+        }, { quoted: msg });
         await sock.sendMessage(chatId, { react: { text: "❌", key: msg.key } });
     }
 }
@@ -4235,7 +5478,7 @@ if (command === 'set-gcpp') {
     const quotedMsg = msg.message?.extendedTextMessage?.contextInfo?.quotedMessage;
     if (!quotedMsg?.imageMessage) {
         await sock.sendMessage(chatId, { 
-            text: '⚠️ Reply to an image with \\setpfp to change the group profile picture.' 
+            text: `❌ Reply to an image with \\${currentPrefix}set-gcpp to change the group profile picture.` 
         }, { quoted: msg });
         return;
     }
@@ -4398,7 +5641,9 @@ if (command === 'kill') {
 if (command === 'admins') {
   try {
     if (!msg.key.remoteJid.endsWith('@g.us')) {
-      await sock.sendMessage(chatId, { text: '❌ This command only works in groups.' });
+      await sock.sendMessage(chatId, { 
+          text: `❌ This command only works in groups.\n\n*Usage:* \\${currentPrefix}admins` 
+      });
       return;
     }
 
@@ -4428,41 +5673,6 @@ if (command === 'admins') {
     console.error('Error in admins command:', err);
     await sock.sendMessage(chatId, { text: '❌ Failed to fetch admin list.' });
   }
-}
-
-// Tagging All Members2
-if (command === 'Tagall') {
-    try {
-        // Make sure it's a group
-        if (!msg.key.remoteJid.endsWith('@g.us')) {
-            await sock.sendMessage(chatId, { text: "❌ This command only works in groups." }, { quoted: msg });
-            return;
-        }
-
-        // Fetch group metadata
-        const groupMetadata = await sock.groupMetadata(chatId);
-        const participants = groupMetadata.participants;
-
-        // Optional: Custom text after tagall
-        const text = args.length > 0 ? args.join(" ") : "📢 *Tagging all members:*";
-
-        // Create numbered list format
-        let memberList = '';
-        participants.forEach((participant, index) => {
-            const username = participant.id.split('@')[0];
-            memberList += `${index + 1}). @${username}\n`;
-        });
-
-        // Send message with mentions
-        await sock.sendMessage(chatId, {
-            text: `${text}\n\n${memberList}`,
-            mentions: participants.map(p => p.id)
-        }, { quoted: msg });
-
-    } catch (e) {
-        console.error(e);
-        await sock.sendMessage(chatId, { text: "❌ Failed to tag all members." }, { quoted: msg });
-    }
 }
 
 // Tagging All Members
@@ -4495,9 +5705,45 @@ if (command === 'tagall') {
         console.error('Error in tagall command:', error);
         await sock.sendMessage(chatId, { text: '❌ Failed to tag all members.' });
     }
+} else if (command === 'Tagall') {
+    try {
+        // Make sure it's a group
+        if (!msg.key.remoteJid.endsWith('@g.us')) {
+            await sock.sendMessage(chatId, { 
+                text: `❌ This command only works in groups.\n\n*Usage:* \\${currentPrefix}Tagall [message]` 
+            }, { quoted: msg });
+            return;
+        }
+
+        // Fetch group metadata
+        const groupMetadata = await sock.groupMetadata(chatId);
+        const participants = groupMetadata.participants;
+
+        // Optional: Custom text after tagall
+        const text = args.length > 0 ? args.join(" ") : "📢 *Tagging all members:*";
+
+        // Create numbered list format
+        let memberList = '';
+        participants.forEach((participant, index) => {
+            const username = participant.id.split('@')[0];
+            memberList += `${index + 1}). @${username}\n`;
+        });
+
+        // Send message with mentions
+        await sock.sendMessage(chatId, {
+            text: `${text}\n\n${memberList}`,
+            mentions: participants.map(p => p.id)
+        }, { quoted: msg });
+
+    } catch (e) {
+        console.error(e);
+        await sock.sendMessage(chatId, { 
+            text: `❌ Failed to tag all members.\n\n*Usage:* \\${currentPrefix}Tagall [message]` 
+        }, { quoted: msg });
+    }
 }
 
-// Warn A Memmber
+// Warn A Member
 if (command === 'warn') {
     try {
         const chatId = msg.key.remoteJid;
@@ -4505,7 +5751,7 @@ if (command === 'warn') {
         
         if (!isGroup) {
             await sock.sendMessage(chatId, { 
-                text: '⚠️ This command only works in groups.' 
+                text: `❌ This command only works in groups.\n\n*Usage:* Reply to user with \\${currentPrefix}warn [reason]` 
             });
             return;
         }
@@ -4541,7 +5787,7 @@ if (command === 'warn') {
 
         if (!targetUser) {
             await sock.sendMessage(chatId, { 
-                text: '❌ Please reply to a user or mention someone to warn.\nUsage: ~warn @user [reason]' 
+                text: `❌ Reply to a user or mention someone with \\${currentPrefix}warn to warn them.\n\n*Usage:* Reply to user or @mention [reason]` 
             }, { quoted: msg });
             return;
         }
@@ -4610,17 +5856,14 @@ if (command === 'warn') {
         warningMessage += `📝 Reason: ${reason || 'No reason provided'}\n`;
         warningMessage += `🛡️ Warned by: @${warnerName}\n\n`;
 
-if (warnCount >= 3) {
-    warningMessage += `🚨 *FINAL WARNING!* User has been removed for exceeding 3 warnings!`;
-
-    // Auto-kick after 3 warnings
-    await sock.groupParticipantsUpdate(chatId, [targetUser], 'remove');
-} else if (warnCount === 2) {
-    warningMessage += `⚠ *Second warning!* One more and actions will be taken!`;
-} else {
-    warningMessage += `ℹ Be careful! Further violations will lead to more warnings.`;
-}
-
+        if (warnCount >= 3) {
+            warningMessage += `🚨 *FINAL WARNING!* User has been removed for exceeding 3 warnings!`;
+            await sock.groupParticipantsUpdate(chatId, [targetUser], 'remove');
+        } else if (warnCount === 2) {
+            warningMessage += `⚠ *Second warning!* One more and actions will be taken!`;
+        } else {
+            warningMessage += `ℹ Be careful! Further violations will lead to more warnings.`;
+        }
 
         // Send warning message
         await sock.sendMessage(chatId, {
@@ -4644,7 +5887,7 @@ if (command === 'warnings') {
         
         if (!isGroup) {
             await sock.sendMessage(chatId, { 
-                text: '⚠️ This command only works in groups.' 
+                text: `❌ This command only works in groups.\n\n*Usage:* \\${currentPrefix}warnings [@user]` 
             });
             return;
         }
@@ -4721,7 +5964,6 @@ if (command === 'warnings') {
     }
 }
 
-
 // Clear All Warnings For A Member
 if (command === 'clearwarns') {
     try {
@@ -4759,7 +6001,7 @@ if (command === 'clearwarns') {
 
         if (!targetUser) {
             await sock.sendMessage(chatId, { 
-                text: '❌ Please reply to or mention a user to clear their warnings.' 
+                text: `❌ Reply to a user or mention someone with \\${currentPrefix}clearwarns to clear their warnings.` 
             }, { quoted: msg });
             return;
         }
@@ -4798,13 +6040,16 @@ if (command === 'clearwarns') {
         });
     }
 }
+
 // Remove one Warning For A Member
 if (command === 'unwarn') { 
     const chatId = msg.key.remoteJid;
     const isGroup = chatId.endsWith('@g.us');
     
     if (!isGroup) {
-        await sock.sendMessage(chatId, { text: '⚠️ This command only works in groups.' });
+        await sock.sendMessage(chatId, { 
+            text: `❌ This command only works in groups.\n\n*Usage:* Reply to user with \\${currentPrefix}unwarn` 
+        });
         return;
     }
 
@@ -4829,7 +6074,7 @@ if (command === 'unwarn') {
 
     if (!targetUser) {
         await sock.sendMessage(chatId, { 
-            text: '⚠️ Please reply to a user or mention someone to unwarn.\nUsage: ~unwarn @user' 
+            text: `❌ Reply to a user or mention someone with \\${currentPrefix}unwarn to remove one warning.` 
         }, { quoted: msg });
         return;
     }
@@ -4900,7 +6145,9 @@ if (command === 'nuke') {
     const isGroup = chatId.endsWith('@g.us');
     
     if (!isGroup) {
-        await sock.sendMessage(chatId, { text: '⚠️ This command only works in groups.' });
+        await sock.sendMessage(chatId, { 
+            text: `❌ This command only works in groups.\n\n*Usage:* \\${currentPrefix}nuke -y` 
+        });
         return;
     }
 
@@ -4934,7 +6181,7 @@ if (command === 'nuke') {
             text: `💣 *NUKE COMMAND CONFIRMATION*\n\n` +
                   `⚠️ This will remove ALL ${nonAdmins.length} non-admin members!\n\n` +
                   `🔴 *This action cannot be undone!*\n\n` +
-                  `To proceed, use: \\nuke -y\n` +
+                  `To proceed, use: \\${currentPrefix}nuke -y\n` +
                   `To cancel, ignore this message.`
         }, { quoted: msg });
         return;
@@ -4993,9 +6240,11 @@ if (command === 'nuke') {
 }
 
 // Reset Group chat's Link
-if (command === 'reset-link') {
+if (command === 'revoke-link') {
     const code = await sock.groupRevokeInvite(msg.key.remoteJid);
-    await sock.sendMessage(msg.key.remoteJid, { text: `✅ Group invite link has been revoked.\nNew link: https://chat.whatsapp.com/${code}` });
+    await sock.sendMessage(msg.key.remoteJid, { 
+        text: `✅ Group invite link has been revoked.\nNew link: https://chat.whatsapp.com/${code}\n\n*Usage:* \\${currentPrefix}revoke-link` 
+    });
 }
 
 // Group Chat Information
@@ -5056,9 +6305,12 @@ if (command === 'ginfo') {
 
     } catch (e) {
         console.error("Error fetching group info:", e);
-        await sock.sendMessage(chatId, { text: "❌ Failed to fetch group information." }, { quoted: msg });
+        await sock.sendMessage(chatId, { 
+            text: `❌ Failed to fetch group information.\n\n*Usage:* \\${currentPrefix}ginfo` 
+        }, { quoted: msg });
     }
 }
+
 // Tag
 if (command === 'Tag') {
     const text = args.join(" ") || "👋 Hello everyone!";
@@ -5077,7 +6329,9 @@ if (command === 'Tag') {
         });
     } catch (error) {
         console.error("Error in ~tag command:", error);
-        await sock.sendMessage(chatId, { text: "❌ Failed to tag members." });
+        await sock.sendMessage(chatId, { 
+            text: `❌ Failed to tag members.\n\n*Usage:* \\${currentPrefix}Tag [message]` 
+        });
     }
 }
 
@@ -5094,7 +6348,9 @@ if (command === 'tag') {
         });
     } catch (error) {
         console.error("Error in ~hidetag command:", error);
-        await sock.sendMessage(chatId, { text: "❌ Failed to hide tag." });
+        await sock.sendMessage(chatId, { 
+            text: `❌ Failed to hide tag.\n\n*Usage:* \\${currentPrefix}tag [message]` 
+        });
     }
 }
 
@@ -5102,7 +6358,9 @@ if (command === 'tag') {
 if (command === 'block2') {
     try {
         if (!msg.key.remoteJid.endsWith("@g.us")) {
-            await sock.sendMessage(chatId, { text: "❌ This command only works in groups." });
+            await sock.sendMessage(chatId, { 
+                text: `❌ This command only works in groups.\n\n*Usage:* Reply to user with \\${currentPrefix}block2` 
+            });
             return;
         }
 
@@ -5110,7 +6368,9 @@ if (command === 'block2') {
         const quotedUser = contextInfo?.participant;
 
         if (!quotedUser) {
-            await sock.sendMessage(chatId, { text: "❌ Reply to a user’s message with ~block2 to block them." });
+            await sock.sendMessage(chatId, { 
+                text: `❌ Reply to a user's message with \\${currentPrefix}block2 to block them.` 
+            });
             return;
         }
 
@@ -5121,16 +6381,19 @@ if (command === 'block2') {
         });
     } catch (error) {
         console.error("Error in block2 command:", error);
-        await sock.sendMessage(chatId, { text: "❌ Failed to block user." });
+        await sock.sendMessage(chatId, { 
+            text: `❌ Failed to block user.\n\n*Usage:* Reply to user with \\${currentPrefix}block2` 
+        });
     }
 }
-
 
 // Unblock from Group chats 
 if (command === 'unblock') {
     try {
         if (!msg.key.remoteJid.endsWith("@g.us")) {
-            await sock.sendMessage(chatId, { text: "❌ This command only works in groups." });
+            await sock.sendMessage(chatId, { 
+                text: `❌ This command only works in groups.\n\n*Usage:* Reply to user with \\${currentPrefix}unblock` 
+            });
             return;
         }
 
@@ -5138,7 +6401,9 @@ if (command === 'unblock') {
         const quotedUser = contextInfo?.participant;
 
         if (!quotedUser) {
-            await sock.sendMessage(chatId, { text: "❌ Reply to a user’s message with ~unblock2 to unblock them." });
+            await sock.sendMessage(chatId, { 
+                text: `❌ Reply to a user's message with \\${currentPrefix}unblock to unblock them.` 
+            });
             return;
         }
 
@@ -5149,7 +6414,9 @@ if (command === 'unblock') {
         });
     } catch (error) {
         console.error("Error in unblock2 command:", error);
-        await sock.sendMessage(chatId, { text: "❌ Failed to unblock user." });
+        await sock.sendMessage(chatId, { 
+            text: `❌ Failed to unblock user.\n\n*Usage:* Reply to user with \\${currentPrefix}unblock` 
+        });
     }
 }
 
@@ -5190,7 +6457,7 @@ if (command === 'detect-h') {
     } catch (err) {
         console.error("Error in ~detecthorny:", err);
         await sock.sendMessage(chatId, {
-            text: "Failed to scan horny levels. Try again later.",
+            text: "❌ Failed to scan horny levels. Try again later.",
         });
         await sock.sendMessage(chatId, { react: { text: "❌", key: msg.key } });
     }
@@ -5211,7 +6478,7 @@ if (command === 'detect') {
 
   if (!targetUser) {
     await sock.sendMessage(chatId, { 
-      text: "🕵️‍♂️ *Detective Mode*\n\nI need a target to investigate!\n\nReply to user or: ~whois-gc @suspect" 
+      text: `❌ Reply to a user or mention someone with \\${currentPrefix}detect to investigate them.\n\n*Usage:* Reply to user or @mention` 
     }, { quoted: msg });
     return;
   }
@@ -5283,7 +6550,9 @@ if (command === "promote") {
     const isGroup = chatId.endsWith("@g.us");
 
     if (!isGroup) {
-        await sock.sendMessage(chatId, { text: "🎭 *Oops!* This command only works in groups, darling! 💫" });
+        await sock.sendMessage(chatId, { 
+            text: `❌ This command only works in groups.\n\n*Usage:* \\${currentPrefix}promote [@user]` 
+        });
         return;
     }
 
@@ -5325,11 +6594,15 @@ if (command === "promote") {
             await sock.sendMessage(chatId, { react: { text: "🎉", key: msg.key } });
         } catch (error) {
             console.error("Error promoting user:", error);
-            await sock.sendMessage(chatId, { text: "❌ *Failed to promote user(s).* Maybe I don't have admin rights? 👀" }, { quoted: msg });
+            await sock.sendMessage(chatId, { 
+                text: "❌ *Failed to promote user(s).* Maybe I don't have admin rights? 👀" 
+            }, { quoted: msg });
             await sock.sendMessage(chatId, { react: { text: "😔", key: msg.key } });
         }
     } else {
-        await sock.sendMessage(chatId, { text: "🤔 *How to use:* Mention or reply to user\n💡 *Example:* .promote @user" }, { quoted: msg });
+        await sock.sendMessage(chatId, { 
+            text: `❌ Reply to a user or mention someone with \\${currentPrefix}promote to promote them.\n\n*Usage:* Reply to user or @mention` 
+        }, { quoted: msg });
         await sock.sendMessage(chatId, { react: { text: "⚠️", key: msg.key } });
     }
 }
@@ -5340,7 +6613,9 @@ if (command === "demote") {
     const isGroup = chatId.endsWith("@g.us");
 
     if (!isGroup) {
-        await sock.sendMessage(chatId, { text: "🎭 *Oops!* This command only works in groups, darling! 💫" });
+        await sock.sendMessage(chatId, { 
+            text: `❌ This command only works in groups.\n\n*Usage:* \\${currentPrefix}demote [@user]` 
+        });
         return;
     }
 
@@ -5382,11 +6657,15 @@ if (command === "demote") {
             await sock.sendMessage(chatId, { react: { text: "✅", key: msg.key } });
         } catch (error) {
             console.error("Error demoting user:", error);
-            await sock.sendMessage(chatId, { text: "❌ *Failed to demote user(s).* Maybe I don't have admin rights? 👀" }, { quoted: msg });
+            await sock.sendMessage(chatId, { 
+                text: "❌ *Failed to demote user(s).* Maybe I don't have admin rights? 👀" 
+            }, { quoted: msg });
             await sock.sendMessage(chatId, { react: { text: "😔", key: msg.key } });
         }
     } else {
-        await sock.sendMessage(chatId, { text: "🤔 *How to use:* Mention or reply to user\n💡 *Example:* .demote @user" }, { quoted: msg });
+        await sock.sendMessage(chatId, { 
+            text: `❌ Reply to a user or mention someone with \\${currentPrefix}demote to demote them.\n\n*Usage:* Reply to user or @mention` 
+        }, { quoted: msg });
         await sock.sendMessage(chatId, { react: { text: "⚠️", key: msg.key } });
     }
 }
@@ -5398,14 +6677,16 @@ if (command === "gc-name") {
     if (newName) {
         try {
             await sock.groupUpdateSubject(chatId, newName);
-            await sock.sendMessage(chatId, { text: "Group name changed!" }, { quoted: msg });
+            await sock.sendMessage(chatId, { text: "✅ Group name changed!" }, { quoted: msg });
             await sock.sendMessage(chatId, { react: { text: "✅", key: msg.key } });
         } catch (error) {
             console.error("Error changing group name:", error);
             await sock.sendMessage(chatId, { react: { text: "❌", key: msg.key } });
         }
     } else {
-        await sock.sendMessage(chatId, { text: "Please enter a new group name." }, { quoted: msg });
+        await sock.sendMessage(chatId, { 
+            text: `❌ Please provide a new group name.\n\n*Usage:* \\${currentPrefix}gc-name [new name]` 
+        }, { quoted: msg });
         await sock.sendMessage(chatId, { react: { text: "❌", key: msg.key } });
     }
 }
@@ -5417,52 +6698,57 @@ if (command === "gc-desc") {
     if (newDesc) {
         try {
             await sock.groupUpdateDescription(chatId, newDesc);
-            await sock.sendMessage(chatId, { text: "Group description changed!" }, { quoted: msg });
+            await sock.sendMessage(chatId, { text: "✅ Group description changed!" }, { quoted: msg });
             await sock.sendMessage(chatId, { react: { text: "✅", key: msg.key } });
         } catch (error) {
             console.error("Error changing group description:", error);
             await sock.sendMessage(chatId, { react: { text: "❌", key: msg.key } });
         }
     } else {
-        await sock.sendMessage(chatId, { text: "Please enter a new group description." }, { quoted: msg });
+        await sock.sendMessage(chatId, { 
+            text: `❌ Please provide a new group description.\n\n*Usage:* \\${currentPrefix}gc-desc [new description]` 
+        }, { quoted: msg });
         await sock.sendMessage(chatId, { react: { text: "❌", key: msg.key } });
     }
 }
 
+// Lock Group Chat
+if (command === 'mute') {
+    await sock.sendMessage(chatId, { react: { text: "⌛", key: msg.key } });
+    try {
+        await sock.groupSettingUpdate(chatId, "announcement");
+        await sock.sendMessage(chatId, { 
+            text: "✅ Chat locked! Only admins can send messages.\n\n*Usage:* \\${currentPrefix}mute" 
+        }, { quoted: msg });
+        await sock.sendMessage(chatId, { react: { text: "✅", key: msg.key } });
+    } catch (error) {
+        console.error('Error closing chat:', error);
+        await sock.sendMessage(chatId, { react: { text: "❌", key: msg.key } });
+    }
+}
 
-        // Lock Group Chat
-        if (command === 'mute') {
-            await sock.sendMessage(chatId, { react: { text: "⌛", key: msg.key } });
-            try {
-                await sock.groupSettingUpdate(chatId, "announcement");
-                await sock.sendMessage(chatId, { text: "Chat locked! Only admins can send messages." }, { quoted: msg });
-                await sock.sendMessage(chatId, { react: { text: "✅", key: msg.key } });
-            } catch (error) {
-                console.error('Error closing chat:', error);
-                await sock.sendMessage(chatId, { react: { text: "❌", key: msg.key } });
-            }
-        }
+// Unlock Chat Group
+if (command === 'unmute') {
+    await sock.sendMessage(chatId, { react: { text: "⌛", key: msg.key } });
+    try {
+        await sock.groupSettingUpdate(chatId, "not_announcement");
+        await sock.sendMessage(chatId, { 
+            text: "✅ Chat unlocked! Everyone can send messages.\n\n*Usage:* \\${currentPrefix}unmute" 
+        }, { quoted: msg });
+        await sock.sendMessage(chatId, { react: { text: "✅", key: msg.key } });
+    } catch (error) {
+        console.error('Error opening chat:', error);
+        await sock.sendMessage(chatId, { react: { text: "❌", key: msg.key } });
+    }
+}
 
-        // Unlock Chat Group
-        if (command === 'unmute') {
-            await sock.sendMessage(chatId, { react: { text: "⌛", key: msg.key } });
-            try {
-                await sock.groupSettingUpdate(chatId, "not_announcement");
-                await sock.sendMessage(chatId, { text: "Chat unlocked! Everyone can send messages." }, { quoted: msg });
-                await sock.sendMessage(chatId, { react: { text: "✅", key: msg.key } });
-            } catch (error) {
-                console.error('Error opening chat:', error);
-                await sock.sendMessage(chatId, { react: { text: "❌", key: msg.key } });
-            }
-        }
-
-// Group chat invite ( Can Also Send To Multiple Users) 
+// Group chat invite (Can Also Send To Multiple Users) 
 if (command === 'inv') {
     const chatId = msg.key.remoteJid;
 
     if (args.length === 0) {
         await sock.sendMessage(chatId, { 
-            text: '📌 Usage: ~inv +2347017747337 +234812345678\n📌 Add multiple numbers separated by spaces' 
+            text: `❌ Please provide phone numbers to invite.\n\n*Usage:* \\${currentPrefix}inv +2347017747337 +234812345678\n*Add multiple numbers separated by spaces*` 
         }, { quoted: msg });
         return;
     }
@@ -5553,7 +6839,9 @@ if (command === 'welcome-on') {
   const welcomeData = JSON.parse(fs.readFileSync(welcomeFile));
 
   if (!isGroup) {
-    await sock.sendMessage(chatId, { text: "⚠️ This command only works in groups." });
+    await sock.sendMessage(chatId, { 
+        text: `❌ This command only works in groups.\n\n*Usage:* \\${currentPrefix}welcome-on` 
+    });
     return;
   }
 
@@ -5563,7 +6851,9 @@ if (command === 'welcome-on') {
 
   welcomeData[chatId].enabled = true;
   fs.writeFileSync(welcomeFile, JSON.stringify(welcomeData, null, 2));
-  await sock.sendMessage(chatId, { text: "✅ Welcome message enabled!" });
+  await sock.sendMessage(chatId, { 
+      text: "✅ Welcome message enabled!\n\n*Usage:* \\${currentPrefix}welcome-on" 
+  });
 }
 
 if (command === 'welcome-off') {
@@ -5572,21 +6862,26 @@ if (command === 'welcome-off') {
   const welcomeData = JSON.parse(fs.readFileSync(welcomeFile));
 
   if (!isGroup) {
-    await sock.sendMessage(chatId, { text: "⚠️ This command only works in groups." });
+    await sock.sendMessage(chatId, { 
+        text: `❌ This command only works in groups.\n\n*Usage:* \\${currentPrefix}welcome-off` 
+    });
     return;
   }
 
   welcomeData[chatId].enabled = false;
   fs.writeFileSync(welcomeFile, JSON.stringify(welcomeData, null, 2));
-  await sock.sendMessage(chatId, { text: "✅ Welcome message diabled!" });
+  await sock.sendMessage(chatId, { 
+      text: "✅ Welcome message disabled!\n\n*Usage:* \\${currentPrefix}welcome-off" 
+  });
 }
-
 
 //set Welcome Message
 if (command === 'welcome-set') {
   const newMsg = args.join(" ");
   if (!newMsg) {
-    await sock.sendMessage(chatId, { text: "⚠️ Usage: \\welcome-set <message>" });
+    await sock.sendMessage(chatId, { 
+        text: `❌ Please provide a welcome message.\n\n*Usage:* \\${currentPrefix}welcome-set [message]` 
+    });
     return;
   }
 
@@ -5600,7 +6895,9 @@ if (command === 'welcome-set') {
 
   welcomeData[chatId].message = newMsg;
   fs.writeFileSync(welcomeFile, JSON.stringify(welcomeData, null, 2));
-  await sock.sendMessage(chatId, { text: `✍️ Welcome message updated:\n${newMsg}` });
+  await sock.sendMessage(chatId, { 
+      text: `✍️ Welcome message updated:\n${newMsg}\n\n*Usage:* \\${currentPrefix}welcome-set [message]` 
+  });
 }
 
 //Toggle GoodBye Message
@@ -5608,7 +6905,9 @@ if (command === 'goodbye') {
   const chatId = msg.key.remoteJid;
   const isGroup = chatId.endsWith('@g.us');
   if (!isGroup) {
-    await sock.sendMessage(chatId, { text: '⚠️ This command only works in groups.' });
+    await sock.sendMessage(chatId, { 
+        text: `❌ This command only works in groups.\n\n*Usage:* \\${currentPrefix}goodbye on/off` 
+    });
     return;
   }
 
@@ -5632,14 +6931,20 @@ if (command === 'goodbye') {
     if (!settings[chatId]) settings[chatId] = {};
     settings[chatId].goodbyeEnabled = true;
     fs.writeFileSync(settingsFile, JSON.stringify(settings, null, 2));
-    await sock.sendMessage(chatId, { text: '✅ Goodbye message enabled for this group.' });
+    await sock.sendMessage(chatId, { 
+        text: '✅ Goodbye message enabled for this group.\n\n*Usage:* \\${currentPrefix}goodbye on' 
+    });
   } else if (arg === 'off') {
     if (!settings[chatId]) settings[chatId] = {};
     settings[chatId].goodbyeEnabled = false;
     fs.writeFileSync(settingsFile, JSON.stringify(settings, null, 2));
-    await sock.sendMessage(chatId, { text: '🚫 Goodbye message disabled for this group.' });
+    await sock.sendMessage(chatId, { 
+        text: '🚫 Goodbye message disabled for this group.\n\n*Usage:* \\${currentPrefix}goodbye off' 
+    });
   } else {
-    await sock.sendMessage(chatId, { text: 'Usage: ~goodbye on / ~goodbye off' });
+    await sock.sendMessage(chatId, { 
+        text: `❌ Please specify on or off.\n\n*Usage:* \\${currentPrefix}goodbye on/off` 
+    });
   }
 }
 
@@ -5650,7 +6955,9 @@ if (command === 'promote-on') {
   const promoteData = JSON.parse(fs.readFileSync(promoteFile));
 
   if (!isGroup) {
-    await sock.sendMessage(chatId, { text: "⚠️ This command only works in groups." });
+    await sock.sendMessage(chatId, { 
+        text: `❌ This command only works in groups.\n\n*Usage:* \\${currentPrefix}promote-on` 
+    });
     return;
   }
 
@@ -5660,7 +6967,9 @@ if (command === 'promote-on') {
 
   promoteData[chatId].enabled = true;
   fs.writeFileSync(promoteFile, JSON.stringify(promoteData, null, 2));
-  await sock.sendMessage(chatId, { text: "✅ Promote notifications enabled!" });
+  await sock.sendMessage(chatId, { 
+      text: "✅ Promote notifications enabled!\n\n*Usage:* \\${currentPrefix}promote-on" 
+  });
 }
 
 if (command === 'promote-off') {
@@ -5669,7 +6978,9 @@ if (command === 'promote-off') {
   const promoteData = JSON.parse(fs.readFileSync(promoteFile));
 
   if (!isGroup) {
-    await sock.sendMessage(chatId, { text: "⚠️ This command only works in groups." });
+    await sock.sendMessage(chatId, { 
+        text: `❌ This command only works in groups.\n\n*Usage:* \\${currentPrefix}promote-off` 
+    });
     return;
   }
 
@@ -5679,13 +6990,17 @@ if (command === 'promote-off') {
 
   promoteData[chatId].enabled = false;
   fs.writeFileSync(promoteFile, JSON.stringify(promoteData, null, 2));
-  await sock.sendMessage(chatId, { text: "❌ Promote notifications disabled!" });
+  await sock.sendMessage(chatId, { 
+      text: "❌ Promote notifications disabled!\n\n*Usage:* \\${currentPrefix}promote-off" 
+  });
 }
 
 if (command === 'set-promote') {
   const newMsg = args.join(" ");
   if (!newMsg) {
-    await sock.sendMessage(chatId, { text: "⚠️ Usage: \\set-promote <message>\nYou can use @user to mention the promoted user" });
+    await sock.sendMessage(chatId, { 
+        text: `❌ Please provide a promote message.\n\n*Usage:* \\${currentPrefix}set-promote [message]\n*You can use @user to mention the promoted user*` 
+    });
     return;
   }
 
@@ -5699,7 +7014,9 @@ if (command === 'set-promote') {
 
   promoteData[chatId].message = newMsg;
   fs.writeFileSync(promoteFile, JSON.stringify(promoteData, null, 2));
-  await sock.sendMessage(chatId, { text: `✍️ Promote message updated:\n${newMsg}` });
+  await sock.sendMessage(chatId, { 
+      text: `✍️ Promote message updated:\n${newMsg}\n\n*Usage:* \\${currentPrefix}set-promote [message]` 
+  });
 }
 
 if (command === 'demote-on') {
@@ -5708,7 +7025,9 @@ if (command === 'demote-on') {
   const demoteData = JSON.parse(fs.readFileSync(demoteFile));
 
   if (!isGroup) {
-    await sock.sendMessage(chatId, { text: "⚠️ This command only works in groups." });
+    await sock.sendMessage(chatId, { 
+        text: `❌ This command only works in groups.\n\n*Usage:* \\${currentPrefix}demote-on` 
+    });
     return;
   }
 
@@ -5718,7 +7037,9 @@ if (command === 'demote-on') {
 
   demoteData[chatId].enabled = true;
   fs.writeFileSync(demoteFile, JSON.stringify(demoteData, null, 2));
-  await sock.sendMessage(chatId, { text: "✅ Demote notifications enabled!" });
+  await sock.sendMessage(chatId, { 
+      text: "✅ Demote notifications enabled!\n\n*Usage:* \\${currentPrefix}demote-on" 
+  });
 }
 
 if (command === 'demote-off') {
@@ -5727,7 +7048,9 @@ if (command === 'demote-off') {
   const demoteData = JSON.parse(fs.readFileSync(demoteFile));
 
   if (!isGroup) {
-    await sock.sendMessage(chatId, { text: "⚠️ This command only works in groups." });
+    await sock.sendMessage(chatId, { 
+        text: `❌ This command only works in groups.\n\n*Usage:* \\${currentPrefix}demote-off` 
+    });
     return;
   }
 
@@ -5737,13 +7060,17 @@ if (command === 'demote-off') {
 
   demoteData[chatId].enabled = false;
   fs.writeFileSync(demoteFile, JSON.stringify(demoteData, null, 2));
-  await sock.sendMessage(chatId, { text: "❌ Demote notifications disabled!" });
+  await sock.sendMessage(chatId, { 
+      text: "❌ Demote notifications disabled!\n\n*Usage:* \\${currentPrefix}demote-off" 
+  });
 }
 
 if (command === 'set-demote') {
   const newMsg = args.join(" ");
   if (!newMsg) {
-    await sock.sendMessage(chatId, { text: "⚠️ Usage: \\set-demote <message>\nYou can use @user to mention the demoted user" });
+    await sock.sendMessage(chatId, { 
+        text: `❌ Please provide a demote message.\n\n*Usage:* \\${currentPrefix}set-demote [message]\n*You can use @user to mention the demoted user*` 
+    });
     return;
   }
 
@@ -5757,7 +7084,9 @@ if (command === 'set-demote') {
 
   demoteData[chatId].message = newMsg;
   fs.writeFileSync(demoteFile, JSON.stringify(demoteData, null, 2));
-  await sock.sendMessage(chatId, { text: `✍️ Demote message updated:\n${newMsg}` });
+  await sock.sendMessage(chatId, { 
+      text: `✍️ Demote message updated:\n${newMsg}\n\n*Usage:* \\${currentPrefix}set-demote [message]` 
+  });
 }
 
 // Anti-Status Mention without Deletion
@@ -5766,7 +7095,9 @@ if (command === 'antimention') {
     const isGroup = chatId.endsWith('@g.us');
     
     if (!isGroup) {
-        await sock.sendMessage(chatId, { text: '⚠️ This command only works in groups.' });
+        await sock.sendMessage(chatId, { 
+            text: `❌ This command only works in groups.\n\n*Usage:* \\${currentPrefix}antimention on/off` 
+        });
         return;
     }
 
@@ -5790,122 +7121,187 @@ if (command === 'antimention') {
         if (!config[chatId]) config[chatId] = {};
         config[chatId].enabled = true;
         fs.writeFileSync(configFile, JSON.stringify(config, null, 2));
-       await sock.sendMessage(chatId, { react: { text: "✅", key: msg.key } });
+       await sock.sendMessage(chatId, { 
+           text: '✅ Anti-mention protection enabled for this group.\n\n*Usage:* \\${currentPrefix}antimention on' 
+       });
     } else if (arg === 'off') {
         if (!config[chatId]) config[chatId] = {};
         config[chatId].enabled = false;
         fs.writeFileSync(configFile, JSON.stringify(config, null, 2));
-        await sock.sendMessage(chatId, { text: '🚫 Anti-mention protection disabled for this group.' });
+        await sock.sendMessage(chatId, { 
+            text: '🚫 Anti-mention protection disabled for this group.\n\n*Usage:* \\${currentPrefix}antimention off' 
+        });
     } else {
-       await sock.sendMessage(chatId, { text: `Usage: ${prefix}antimention on / ${prefix}antimention off\n\n📝 When enabled, the bot will delete @everyone mentions and warn users automatically.` });
+       await sock.sendMessage(chatId, { 
+           text: `❌ Please specify on or off.\n\n*Usage:* \\${currentPrefix}antimention on/off\n\n📝 When enabled, the bot will delete @everyone mentions and warn users automatically.` 
+       });
     }
 }
 
-        
-        // Anti Link Actived
-        if (command === 'antilink-on') {
-            await sock.sendMessage(chatId, { react: { text: "⌛", key: msg.key } });
-            try {
-                config.ANTI_LINK = true;
-        
-                fs.writeFileSync(configPath, JSON.stringify(config, null, 2), 'utf-8');
-        
-                const responseMessage = `Anti link activated`;
-                await sock.sendMessage(chatId, { text: responseMessage }, { quoted: msg });
-                console.log(`Response: ${responseMessage}`);
-        
-                await sock.sendMessage(chatId, { react: { text: "✅", key: msg.key } });
-            } catch (error) {
-                console.error('Error sending message:', error);
-                await sock.sendMessage(chatId, { react: { text: "❌", key: msg.key } });
-            }
+// Anti Link Actived
+if (command === 'antilink-on') {
+    await sock.sendMessage(chatId, { react: { text: "⌛", key: msg.key } });
+    try {
+        if (!isGroup) {
+            await sock.sendMessage(chatId, { 
+                text: `❌ This command only works in groups.\n\n*Usage:* \\${currentPrefix}antilink-on` 
+            });
+            return;
         }
-        
-        // Anti Link Non-Actived
-        if (command === 'antilink-off') {
-            await sock.sendMessage(chatId, { react: { text: "⌛", key: msg.key } });
-            try {
-                config.ANTI_LINK = false;
-        
-                fs.writeFileSync(configPath, JSON.stringify(config, null, 2), 'utf-8');
-        
-                const responseMessage = `Anti link Deactivated`;
-                await sock.sendMessage(chatId, { text: responseMessage }, { quoted: msg });
-                console.log(`Response: ${responseMessage}`);
-        
-                await sock.sendMessage(chatId, { react: { text: "✅", key: msg.key } });
-            } catch (error) {
-                console.error('Error sending message:', error);
-                await sock.sendMessage(chatId, { react: { text: "❌", key: msg.key } });
-            }
+
+        const antilinkFile = './src/antilink.json';
+        if (!fs.existsSync(antilinkFile)) fs.writeFileSync(antilinkFile, JSON.stringify({}));
+        const antilinkData = JSON.parse(fs.readFileSync(antilinkFile));
+
+        // Initialize if doesn't exist
+        if (!antilinkData[chatId]) {
+            antilinkData[chatId] = { enabled: false };
         }
-		
-		// Badwords Actived
-        if (command === 'antibadwords-on') {
-            await sock.sendMessage(chatId, { react: { text: "⌛", key: msg.key } });
-            try {
-                config.ANTI_BADWORDS = true;
-        
-                fs.writeFileSync(configPath, JSON.stringify(config, null, 2), 'utf-8');
-        
-                const responseMessage = "Antibadwords Activated";
-                await sock.sendMessage(chatId, { text: responseMessage }, { quoted: msg });
-                console.log(`Response: ${responseMessage}`);
-        
-                await sock.sendMessage(chatId, { react: { text: "✅", key: msg.key } });
-            } catch (error) {
-                console.error('Error sending message:', error);
-                await sock.sendMessage(chatId, { react: { text: "❌", key: msg.key } });
-            }
+
+        antilinkData[chatId].enabled = true;
+        fs.writeFileSync(antilinkFile, JSON.stringify(antilinkData, null, 2));
+
+        const responseMessage = `✅ Anti-link activated for this group\n\n*Usage:* \\${currentPrefix}antilink-on`;
+        await sock.sendMessage(chatId, { text: responseMessage }, { quoted: msg });
+        console.log(`Response: ${responseMessage}`);
+
+        await sock.sendMessage(chatId, { react: { text: "✅", key: msg.key } });
+    } catch (error) {
+        console.error('Error sending message:', error);
+        await sock.sendMessage(chatId, { react: { text: "❌", key: msg.key } });
+    }
+}
+
+// Anti Link Non-Actived (Group Specific)
+if (command === 'antilink-off') {
+    await sock.sendMessage(chatId, { react: { text: "⌛", key: msg.key } });
+    try {
+        if (!isGroup) {
+            await sock.sendMessage(chatId, { 
+                text: `❌ This command only works in groups.\n\n*Usage:* \\${currentPrefix}antilink-off` 
+            });
+            return;
         }
-        
-        // Badwords Deactivated
-        if ( command === 'antibadwords-off') {
-            await sock.sendMessage(chatId, { react: { text: "⌛", key: msg.key } });
-            try {
-                config.ANTI_BADWORDS = false;
-        
-                fs.writeFileSync(configPath, JSON.stringify(config, null, 2), 'utf-8');
-        
-                const responseMessage = "Badwords Deactivated";
-                await sock.sendMessage(chatId, { text: responseMessage }, { quoted: msg });
-                console.log(`Response: ${responseMessage}`);
-        
-                await sock.sendMessage(chatId, { react: { text: "✅", key: msg.key } });
-            } catch (error) {
-                console.error('Error sending message:', error);
-                await sock.sendMessage(chatId, { react: { text: "❌", key: msg.key } });
-            }
+
+        const antilinkFile = './src/antilink.json';
+        if (!fs.existsSync(antilinkFile)) fs.writeFileSync(antilinkFile, JSON.stringify({}));
+        const antilinkData = JSON.parse(fs.readFileSync(antilinkFile));
+
+        // Initialize if doesn't exist
+        if (!antilinkData[chatId]) {
+            antilinkData[chatId] = { enabled: true };
         }
-		
-		// Public Mode
-        if (command === 'public') {
-            await sock.sendMessage(chatId, { react: { text: "⌛", key: msg.key } });
-            try {
-                config.SELF_BOT_MESSAGE = false;
-                fs.writeFileSync(configPath, JSON.stringify(config, null, 2), 'utf-8');
-                console.log(`Response: Self Bot Use Non-Actived`);
-                await sock.sendMessage(chatId, { react: { text: "✅", key: msg.key } });
-            } catch (error) {
-                console.error('Error sending message:', error);
-                await sock.sendMessage(chatId, { react: { text: "❌", key: msg.key } });
-            }
+
+        antilinkData[chatId].enabled = false;
+        fs.writeFileSync(antilinkFile, JSON.stringify(antilinkData, null, 2));
+
+        const responseMessage = `❌ Anti-link deactivated for this group\n\n*Usage:* \\${currentPrefix}antilink-off`;
+        await sock.sendMessage(chatId, { text: responseMessage }, { quoted: msg });
+        console.log(`Response: ${responseMessage}`);
+
+        await sock.sendMessage(chatId, { react: { text: "✅", key: msg.key } });
+    } catch (error) {
+        console.error('Error sending message:', error);
+        await sock.sendMessage(chatId, { react: { text: "❌", key: msg.key } });
+    }
+}
+
+if (command === 'antilink-status') {
+    await sock.sendMessage(chatId, { react: { text: "⌛", key: msg.key } });
+    try {
+        const antilinkFile = './src/antilink.json';
+        if (!fs.existsSync(antilinkFile)) {
+            await sock.sendMessage(chatId, { 
+                text: `❌ Anti-link system not configured for this group.\n\n*Usage:* \\${currentPrefix}antilink-on to enable` 
+            });
+            return;
         }
-		
-		// Private Mode
-        if (command === 'private') {
-            await sock.sendMessage(chatId, { react: { text: "⌛", key: msg.key } });
-            try {
-                config.SELF_BOT_MESSAGE = true;
-                fs.writeFileSync(configPath, JSON.stringify(config, null, 2), 'utf-8');
-                console.log(`Response: Self Bot Use Actived`);
-                await sock.sendMessage(chatId, { react: { text: "✅", key: msg.key } });
-            } catch (error) {
-                console.error('Error sending message:', error);
-                await sock.sendMessage(chatId, { react: { text: "❌", key: msg.key } });
-            }
-        }
-} 
-} 
+
+        const antilinkData = JSON.parse(fs.readFileSync(antilinkFile));
+        const isEnabled = antilinkData[chatId] && antilinkData[chatId].enabled;
+        const status = isEnabled ? "🟢 ENABLED" : "🔴 DISABLED";
+        
+        await sock.sendMessage(chatId, {
+            text: `🔗 *Anti-Link Status*\n\nStatus: ${status}\n\n*Usage:* \\${currentPrefix}antilink-on to enable\n*Usage:* \\${currentPrefix}antilink-off to disable` 
+        });
+        
+        await sock.sendMessage(chatId, { react: { text: "✅", key: msg.key } });
+    } catch (error) {
+        console.error('Error:', error);
+        await sock.sendMessage(chatId, { react: { text: "❌", key: msg.key } });
+    }
+}
+
+// Badwords Actived
+if (command === 'antibadwords-on') {
+    await sock.sendMessage(chatId, { react: { text: "⌛", key: msg.key } });
+    try {
+        config.ANTI_BADWORDS = true;
+
+        fs.writeFileSync(configPath, JSON.stringify(config, null, 2), 'utf-8');
+
+        const responseMessage = "✅ Antibadwords Activated\n\n*Usage:* \\${currentPrefix}antibadwords-on";
+        await sock.sendMessage(chatId, { text: responseMessage }, { quoted: msg });
+        console.log(`Response: ${responseMessage}`);
+
+        await sock.sendMessage(chatId, { react: { text: "✅", key: msg.key } });
+    } catch (error) {
+        console.error('Error sending message:', error);
+        await sock.sendMessage(chatId, { react: { text: "❌", key: msg.key } });
+    }
+}
+
+// Badwords Deactivated
+if ( command === 'antibadwords-off') {
+    await sock.sendMessage(chatId, { react: { text: "⌛", key: msg.key } });
+    try {
+        config.ANTI_BADWORDS = false;
+
+        fs.writeFileSync(configPath, JSON.stringify(config, null, 2), 'utf-8');
+
+        const responseMessage = "❌ Badwords Deactivated\n\n*Usage:* \\${currentPrefix}antibadwords-off";
+        await sock.sendMessage(chatId, { text: responseMessage }, { quoted: msg });
+        console.log(`Response: ${responseMessage}`);
+
+        await sock.sendMessage(chatId, { react: { text: "✅", key: msg.key } });
+    } catch (error) {
+        console.error('Error sending message:', error);
+        await sock.sendMessage(chatId, { react: { text: "❌", key: msg.key } });
+    }
+}
+
+// Public Mode
+if (command === 'public') {
+    await sock.sendMessage(chatId, { react: { text: "⌛", key: msg.key } });
+    try {
+        config.SELF_BOT_MESSAGE = false;
+        fs.writeFileSync(configPath, JSON.stringify(config, null, 2), 'utf-8');
+        await sock.sendMessage(chatId, { 
+            text: "✅ Public mode activated - Bot responds to everyone\n\n*Usage:* \\${currentPrefix}public" 
+        }, { quoted: msg });
+        await sock.sendMessage(chatId, { react: { text: "✅", key: msg.key } });
+    } catch (error) {
+        console.error('Error sending message:', error);
+        await sock.sendMessage(chatId, { react: { text: "❌", key: msg.key } });
+    }
+}
+
+// Private Mode
+if (command === 'private') {
+    await sock.sendMessage(chatId, { react: { text: "⌛", key: msg.key } });
+    try {
+        config.SELF_BOT_MESSAGE = true;
+        fs.writeFileSync(configPath, JSON.stringify(config, null, 2), 'utf-8');
+        await sock.sendMessage(chatId, { 
+            text: "✅ Private mode activated - Bot responds only to you\n\n*Usage:* \\${currentPrefix}private" 
+        }, { quoted: msg });
+        await sock.sendMessage(chatId, { react: { text: "✅", key: msg.key } });
+    } catch (error) {
+        console.error('Error sending message:', error);
+        await sock.sendMessage(chatId, { react: { text: "❌", key: msg.key } });
+    }
+  }
+}
 
 module.exports = Message;
+
