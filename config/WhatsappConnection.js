@@ -440,8 +440,7 @@ async function startBot() {
       }
       return;
     }
-    
-    // Welcome new members
+        // Welcome new members
     if (action === 'add') {
       const welcomeFile = './src/welcome.json';
       if (!fs.existsSync(welcomeFile)) return;
@@ -456,33 +455,51 @@ async function startBot() {
       
       if (!welcomeData[id]?.enabled) return;
 
+      console.log(`👥 Welcome triggered for ${participants.length} users`);
+
       for (const user of participants) {
-        let pfpUrl;
         try {
-          pfpUrl = await Promise.race([
-            sock.profilePictureUrl(user, 'image'),
-            new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 5000))
-          ]);
-        } catch {
-          console.log(`⚠️ Using fallback pfp for ${user}`);
-          pfpUrl = 'https://i.imgur.com/1s6Qz8v.png';
-        }
+          // Extract JID - participants can be objects or strings
+          const userJid = typeof user === 'string' ? user : user.id || user.jid;
+          
+          if (!userJid) {
+            console.log('⚠️ Could not extract JID from:', user);
+            continue;
+          }
 
-        const welcomeText = (welcomeData[id]?.message || '👋 Welcome @user!')
-          .replace('@user', `@${user.split('@')[0]}`);
+          let pfpUrl;
+          try {
+            pfpUrl = await Promise.race([
+              sock.profilePictureUrl(userJid, 'image'),
+              new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 5000))
+            ]);
+          } catch {
+            console.log(`⚠️ Using fallback pfp for ${userJid}`);
+            pfpUrl = 'https://i.imgur.com/1s6Qz8v.png';
+          }
 
-        try {
-          await sock.sendMessage(id, {
-            ...(pfpUrl && { image: { url: pfpUrl } }),
-            caption: welcomeText,
-            mentions: [user]
-          });
-        } catch (e) {
-          console.error('❌ Failed to send welcome with image:', e);
-          await sock.sendMessage(id, {
-            text: welcomeText,
-            mentions: [user]
-          });
+          // Get the username/number for display
+          const userDisplay = userJid.split('@')[0];
+          
+          // Replace @user in the welcome message
+          const welcomeText = (welcomeData[id]?.message || '👋 Welcome @user!')
+            .replace(/@user/g, `@${userDisplay}`);
+
+          try {
+            await sock.sendMessage(id, {
+              ...(pfpUrl && { image: { url: pfpUrl } }),
+              caption: welcomeText,
+              mentions: [userJid] // Use the extracted JID for mentions
+            });
+          } catch (e) {
+            console.error('❌ Failed to send welcome with image:', e);
+            await sock.sendMessage(id, {
+              text: welcomeText,
+              mentions: [userJid] // Use the extracted JID for mentions
+            });
+          }
+        } catch (error) {
+          console.error('❌ Error processing welcome for user:', user, error);
         }
       }
     }
@@ -509,31 +526,49 @@ async function startBot() {
       
       if (!settings[id]?.goodbyeEnabled) return;
 
-      const goodbyeText = `👋 Goodbye @user!\n⌚ Left at: ${time}, ${date}\nToo Bad We Won't Miss You! 💔`;
+      console.log(`👥 Goodbye triggered for ${participants.length} users`);
 
       for (const user of participants) {
-        let pfpUrl;
         try {
-          pfpUrl = await Promise.race([
-            sock.profilePictureUrl(user, 'image'),
-            new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 5000))
-          ]);
-        } catch {
-          pfpUrl = 'https://i.imgur.com/1s6Qz8v.png';
-        }
+          // Extract JID - participants can be objects or strings
+          const userJid = typeof user === 'string' ? user : user.id || user.jid;
+          
+          if (!userJid) {
+            console.log('⚠️ Could not extract JID from:', user);
+            continue;
+          }
 
-        try {
-          await sock.sendMessage(id, {
-            ...(pfpUrl && { image: { url: pfpUrl } }),
-            caption: goodbyeText.replace('@user', `@${user.split('@')[0]}`),
-            mentions: [user]
-          });
-        } catch (e) {
-          console.error('❌ Failed to send goodbye with image:', e);
-          await sock.sendMessage(id, {
-            text: goodbyeText.replace('@user', `@${user.split('@')[0]}`),
-            mentions: [user]
-          });
+          // Get the username/number for display
+          const userDisplay = userJid.split('@')[0];
+          
+          // Create goodbye text with proper replacement
+          const goodbyeText = `👋 Goodbye @${userDisplay}!\n⌚ Left at: ${time}, ${date}\nToo Bad We Won't Miss You! 💔`;
+
+          let pfpUrl;
+          try {
+            pfpUrl = await Promise.race([
+              sock.profilePictureUrl(userJid, 'image'),
+              new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 5000))
+            ]);
+          } catch {
+            pfpUrl = 'https://i.imgur.com/1s6Qz8v.png';
+          }
+
+          try {
+            await sock.sendMessage(id, {
+              ...(pfpUrl && { image: { url: pfpUrl } }),
+              caption: goodbyeText,
+              mentions: [userJid] // Use the extracted JID for mentions
+            });
+          } catch (e) {
+            console.error('❌ Failed to send goodbye with image:', e);
+            await sock.sendMessage(id, {
+              text: goodbyeText,
+              mentions: [userJid] // Use the extracted JID for mentions
+            });
+          }
+        } catch (error) {
+          console.error('❌ Error processing goodbye for user:', user, error);
         }
       }
     }
